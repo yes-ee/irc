@@ -2,6 +2,7 @@
 #include "../inc/Client.hpp"
 #include "../inc/Channel.hpp"
 
+// irssi -c 127.0.0.1 -p 6667 -n nickname
 int main(int argc, char *argv[])
 {
 	if (argc != 3)
