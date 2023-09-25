@@ -10,4 +10,18 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	int port = atoi(argv[1]); //int 아닌 경우 예외처리
+	int password = atoi(argv[2]); // password 길이 제한 및 int 예외처리
+	
+	try
+	{
+		Server server(port, password);
+		server.init();
+		server.run();
+	}
+	catch(const std::exception& e)
+	{
+		std::cerr << e.what() << '\n';
+	}
+
 }

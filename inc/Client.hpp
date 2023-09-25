@@ -10,6 +10,7 @@ class Channel;
 class Client {
 	private:
 		int socket;
+		std::string buffer;
 		std::string nickname;
 		std::string username;
 		std::vector<Channel> channels;
@@ -17,6 +18,7 @@ class Client {
 	public:
 		Client();
 		~Client();
+		Client(int socket);
 		void setSocket(int socket);
 		int getSocket() const;
 		void setNickname(std::string& nickname);
@@ -24,6 +26,9 @@ class Client {
 		void setUsername(std::string& userName);
 		std::string getUsername() const;
 		void joinRequest(Channel& channel);
+		void addBuffer(std::string data);
+		std::string getBuffer() const;
+		void clearBuffer();
 };
 
 		bool operator==(const Client& lhs, const Client& rhs);
