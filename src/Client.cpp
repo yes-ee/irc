@@ -11,6 +11,11 @@ Client::~Client()
 
 }
 
+Client::Client(int socket) : socket(socket)
+{
+	this->buffer = "";
+}
+
 void Client::setSocket(int socket)
 {
 	this->socket = socket;
@@ -44,6 +49,21 @@ std::string Client::getUsername() const
 void Client::joinRequest(Channel& channel)
 {
 	channel.joinClient(*this);
+}
+
+void Client::addBuffer(std::string data)
+{
+	this->buffer += data;
+}
+
+std::string Client::getBuffer() const
+{
+	return this->buffer;
+}
+
+void Client::clearBuffer()
+{
+	this->buffer.clear();
 }
 
 bool operator==(const Client& lhs, const Client& rhs)
