@@ -10,9 +10,16 @@ Channel::~Channel()
 
 }
 
-Channel::Channel(std::string& name) : name(name)
+Channel::Channel(std::string& name, std::string& key, Client& client) : name(name), owner(client), user_limit(2), invite_mode(false)
 {
+	std::string nick = client.getNickname();
 
+	if (!key.empty())
+	{
+		this->password = key;
+	}
+	this->users[nick] = client;
+	this->auth[nick] = OWNER;
 }
 
 void Channel::setName(std::string& name)
@@ -26,14 +33,35 @@ std::string Channel::getName() const
 }
 
 
-void Channel::setPassword(int password)
+void Channel::setPassword(std::string& password)
 {
 	this->password = password;
 }
 
-int Channel::getPassword() const
+std::string Channel::getPassword() const
 {
 	return this->password;
+}
+
+void Channel::setInviteMode(bool flag)
+{
+	this->invite_mode = flag;
+}
+
+bool Channel::getInviteMode() const
+{
+	return this->invite_mode;
+}
+
+
+void Channel::setUserLimit(int limit)
+{
+	this->user_limit = limit;
+}
+
+int Channel::getUserLimit() const
+{
+	return this->user_limit;
 }
 
 void Channel::setOwner(Client& client)
@@ -46,50 +74,52 @@ Client Channel::getOwner() const
 	return this->owner;
 }
 
-
-void Channel::addOperator(const Client& client)
+void Channel::setOperator(const Client& client)
 {
-	this->operators.push_back(client);
-}
-
-std::vector<Client> Channel::getOperators() const
-{
-	return this->operators;
-}
-
-void Channel::joinClient(const Client& client)
-{
-	if (checkClient(client))
-		this->clients.push_back(client);
-}
-
-bool Channel::checkClient(const Client& client)
-{
-	if (checkBan(client))
-		return false;
-	return true;
-}
-
-void Channel::addBan(const Client& client)
-{
-	this->bans.push_back(client);
-}
-
-bool Channel::checkBan(const Client& client)
-{
-	return false;
-}
-
-std::vector<Client> Channel::getClients() const
-{
-	return this->clients;
+	this->auth[client.getNickname()] = OPERATOR;
 }
 
 bool Channel::isOperator(const Client& client)
 {
-	if (find(this->operators.begin(), this->operators.end(), client) != this->operators.end())
+	if (this->auth[client.getNickname()] >= OPERATOR)
 		return true;
 	return false;
+}
+
+void Channel::joinClient(const Client& client)
+{
+	if (checkBan(client))
+		throw banError();
+
+	std::string name = client.getNickname();
+	this->users[name] = client;
+	this->auth[name] = COMMON;
+}
+
+void Channel::addBan(const Client& client)
+{
+	std::string name = client.getNickname();
+
+	this->auth.erase(name);
+	this->users.erase(name);
+	this->ban.push_back(name);
+	// quit 처리
+}
+
+bool Channel::checkBan(const Client& client)
+{
+	if (this->ban.size() > 0)
+	{
+		std::vector<std::string>::iterator it = find(this->ban.begin(), this->ban.end(), client.getNickname());
+		if (it != this->ban.end())
+			return true;
+	}
+	return false;
+}
+
+std::map<std::string, Client> Channel::getUsers() const
+{
+	return this->users;
 }
 
 bool Channel::validateCommand(std::vector<std::string>& mode_cmd, std::string& command)
