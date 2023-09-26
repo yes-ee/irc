@@ -185,7 +185,7 @@ std::string Server::handleUser(Client& client, std::string& cmd, std::stringstre
 	//"<client> :Welcome to the <networkname> Network, <nick>[!<user>@<host>]"
 	// error일 경우 해당하는 에러 메세지 담아서 보낼 것
 	// /r/n 제외 msg만 보내고 나중에 /r/n 더해서 send
-	std::string response = OK_WELCOME(client.getNickname());
+	std::string response = RPL_WELCOME(client.getNickname());
 	return response;
 }
 
@@ -219,6 +219,20 @@ std::string Server::handleWho(Client& client, std::stringstream buffer_stream)
 {
 
 	return "";
+}
+
+std::string Server::handlePingpong(Client& client, std::stringstream& buffer_stream)
+{
+	std::string response;
+
+	std::string ping;
+	buffer_stream >> ping;
+
+	if (ping.empty())
+		response = ERR_NOORIGIN();
+	else
+		response = RPL_PONG(client.getPrefix(), ping);
+	return response;
 }
 
 std::string Server::makeCRLF(std::string& cmd)
@@ -286,6 +300,10 @@ void Server::parseData(Client& client)
 		else if (method == "USER")
 		{
 			response = handleUser(client, line, buffer_stream);
+		}
+		else if (method == "PING")
+		{
+			response = handlePingpong(client, buffer_stream);
 		}
 		// else if (method == "WHOIS" || method == "WHO")
 		// {
