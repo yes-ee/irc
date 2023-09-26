@@ -23,7 +23,7 @@
 class Server {
 	private:
 		int port;
-		int password;
+		std::string password;
 		int server_socket;
 		int kq;
 		std::string network_name;
@@ -36,7 +36,7 @@ class Server {
 		std::map<int, std::string> send_data;
 	public:
 		Server();
-		Server(int port, int password);
+		Server(int port, std::string password);
 		~Server();
 		void init();
 		void setPort(int port);
@@ -45,8 +45,8 @@ class Server {
 		int getServerSocket() const;
 		void setKq(int kq);
 		int getKq() const;
-		void setPassword(int password);
-		int getPassword() const;
+		void setPassword(std::string password);
+		std::string getPassword() const;
 		void addChannel(const Channel& channel);
 		std::vector<Channel> getChannels() const;
 		std::map<int, Client> getClients() const;
@@ -56,6 +56,7 @@ class Server {
 		void disconnectClient(int client_fd);
 		void parseData(Client& client);
 		std::string handleUser(Client& client, std::string& cmd);
+		std::string handlePass(Client& client, std::string& cmd);
 
 	class	bindError: public std::exception
 	{
