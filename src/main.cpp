@@ -3,7 +3,7 @@
 #include "../inc/Channel.hpp"
 
 // docker run -d --name ubuntu -p 80:80 -it --privileged ubuntu:20.04
-// irssi -c 10.12.6.3 -p 8080 -n mynick
+// irssi -c 10.12.1.5 -p 6667 -n mynick
 int main(int argc, char *argv[])
 {
 	if (argc != 3)
