@@ -12,3 +12,27 @@ ex) Feat: Add Key mapping
 - `📝 Docs` : 문서 수정, 추가, 삭제 (README)
 - `🧪 Test` : 테스트 관련 (테스트 코드 추가, 수정, 삭제)
 - `Chore` : 기타 변경사항 (빌드 스크립트 수정, 패키지 매니저 등)
+
+
+# 실행 방법
+#### 1. 서버 실행
+```bash
+make
+./ircserv <port> <password>
+```
+
+#### 2. 클라이언트(irssi) 실행
+##### 도커 실행
+ ```bash
+ docker run -d --name ubuntu -p 80:80 -it --privileged ubuntu:20.04
+ ```
+
+##### irssi 설치 및 서버 접속
+```bash
+apt-get update && apt-get upgrade -y
+apt-get install irssi -y
+# timezone 6, 69 선택
+
+# irssi -c <host> -p <port> -n <nickname>
+irssi -c 10.12.6.3 -p 8080 -n nickname
+```
