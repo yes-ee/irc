@@ -20,7 +20,9 @@
 #include <exception>
 #include <sstream>
 
-#define OK_WELCOME(user)		"001 " + user + " :Welcome to the happyirc network " + user + "!"
+#define OK_WELCOME(user)			"001 " + user + " :Welcome to the happyirc network " + user + "!"
+#define ERR_NONICKNAMEGIVEN(user)	"431 " + user + " :Nickname not given"
+#define ERR_NICKNAMEINUSE(user)		"433 " + user + " " + user + " :Nickname is already in use"
 #define ERR_PASSWDMISMATCH(user)	"464 " + user + " :Password is incorrect"
 
 class Server {
@@ -36,6 +38,7 @@ class Server {
 		struct kevent	event_list[1024];
 		std::map<std::string, Channel> channels;
 		std::map<int, Client> clients;
+		std::map<std::string, Client> clients_by_name;
 		std::map<int, std::string> send_data;
 	public:
 		Server();
@@ -58,7 +61,8 @@ class Server {
 		void run();
 		void disconnectClient(int client_fd);
 		void parseData(Client& client);
-		std::string handlePass(Client& client, std::stringstream buffer_stream);
+		std::string handlePass(Client& client, std::stringstream& buffer_stream);
+		std::string handleNick(Client& client, std::stringstream& buffer_stream);
 		std::string makeCRLF(std::string& cmd);
 		std::string handleUser(Client& client, std::string& cmd, std::stringstream& buffer_stream);
 		std::string handleJoin(Client& client, std::string& cmd);

@@ -163,6 +163,38 @@ void Server::run()
     }
 }
 
+std::string Server::handleNick(Client& client, std::stringstream& buffer_stream)
+{
+	std::string name;
+	std::string cur_nick;
+	std::string response = "";
+
+	//NICK 뒤에 파라미터 안 들어온 경우
+	if (!(buffer_stream >> name))
+		response = ERR_NONICKNAMEGIVEN(client.getNickname());
+
+	//닉네임 설정
+	else
+	{
+		// 닉네임 중복 체크
+		if (this->clients_by_name.find(name) != this->clients_by_name.end())
+		{
+			response = ERR_NICKNAMEINUSE(name);
+		}
+		else
+		{
+			cur_nick = client.getNickname();
+			clients_by_name.erase(cur_nick);
+			client.setNickname(name);
+			this->clients_by_name[name] = client;
+			response = ":" + cur_nick + " NICK :" + name;
+		}
+	}
+
+	return response;
+}
+
+
 std::string Server::handleUser(Client& client, std::string& cmd, std::stringstream& buffer_stream)
 {
 	std::string line;
@@ -189,7 +221,7 @@ std::string Server::handleUser(Client& client, std::string& cmd, std::stringstre
 	return response;
 }
 
-std::string Server::handlePass(Client& client, std::stringstream buffer_stream)
+std::string Server::handlePass(Client& client, std::stringstream& buffer_stream)
 {
 	// 이미 register된 클라이언트인 경우
 	if (client.getRegister())
@@ -209,8 +241,6 @@ std::string Server::handlePass(Client& client, std::stringstream buffer_stream)
 	// 성공
 	client.setRegister(true);
 
-	// NICK, USER 받은 후 보내기
-	// return "Welcome to the Internet Relay Network " + client.getNickname();
 	return "";
 }
 
@@ -258,15 +288,11 @@ void Server::parseData(Client& client)
 
 		buffer_stream >> method;
 
-		if (!client.getRegister())
+		if (method != "CAP" && !client.getRegister())
 		{
-			// CAP 인 경우 다음 메소드 처리
-			if (method == "CAP")
-				continue;
 			if (method == "PASS")
 			{
-				buffer_stream >> line;
-				response = handlePass(client, line);
+				response = handlePass(client, buffer_stream);
 			}
 			else
 			{
@@ -279,12 +305,7 @@ void Server::parseData(Client& client)
 		}
 		else if (method == "NICK")
 		{
-			
-			// 닉네임 유효성 검사
-			std::string nickname;
-			buffer_stream >> nickname;
-			client.setNickname(nickname);
-			response = "";
+			response = handleNick(client, buffer_stream);
 		}
 		else if (method == "USER")
 		{
@@ -295,6 +316,7 @@ void Server::parseData(Client& client)
 		// 	response = handleWho()
 		// }
 		this->send_data[client.getSocket()] = makeCRLF(response);
+		std::cout << "send data : " << response << std::endl;
 
 		buffer = buffer.substr(pos + 2, std::string::npos);
 	}
