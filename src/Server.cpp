@@ -172,6 +172,7 @@ std::string Server::handleUser(Client& client, std::string& cmd, std::stringstre
 	buffer_stream >> line;
 	client.setHostname(line);
 	buffer_stream >> line;
+	client.setServername(line);
 	this->servername = line;
 	line = buffer_stream.str();
 
@@ -180,12 +181,12 @@ std::string Server::handleUser(Client& client, std::string& cmd, std::stringstre
 	{
 		std::string realname = line.substr(1, std::string::npos);
 		client.setRealname(realname);
-		std::cout << "realname : " << client.getRealname();
 	}
 	//"<client> :Welcome to the <networkname> Network, <nick>[!<user>@<host>]"
 	// error일 경우 해당하는 에러 메세지 담아서 보낼 것
 	// /r/n 제외 msg만 보내고 나중에 /r/n 더해서 send
-	return "Welcome to the Internet Relay Network " + client.getNickname() + "!" + client.getUsername() + "@" + client.getHostname();
+	std::string response = OK_WELCOME(client.getNickname());
+	return response;
 }
 
 std::string Server::handlePass(Client& client, std::string& cmd)
@@ -214,10 +215,15 @@ std::string Server::handlePass(Client& client, std::string& cmd)
 	return "";
 }
 
-std::string Server::makeSendData(Client& client, std::string& cmd)
+std::string Server::handleWho(Client& client, std::stringstream buffer_stream)
 {
-	std::string status_code = "001";
-	return status_code + " :" + this->servername + " " + cmd + "\r\n";
+
+	return "";
+}
+
+std::string Server::makeCRLF(std::string& cmd)
+{
+	return cmd + "\r\n";
 }
 
 void Server::parseData(Client& client)
@@ -253,7 +259,23 @@ void Server::parseData(Client& client)
 
 		buffer_stream >> method;
 
-		if (method == "NICK")
+		if (method != "CAP" && !client.getRegister())
+		{
+			if (method == "PASS")
+			{
+				buffer_stream >> line;
+				response = handlePass(client, line);
+				client.setRegister(true);
+			}
+			else
+			{
+				response = ERR_PASSWDMISMATCH(client.getNickname());
+				this->send_data[client.getSocket()] = makeCRLF(response);
+				client.clearBuffer();
+				return ;
+			}
+		}
+		else if (method == "NICK")
 		{
 			// 닉네임 유효성 검사
 			std::string nickname;
@@ -261,19 +283,15 @@ void Server::parseData(Client& client)
 			client.setNickname(nickname);
 			response = "";
 		}
-		else if (method == "CAP")
-		{
-			std::string ls;
-			buffer_stream >> ls;
-			if (ls == "LS")
-				response = "";
-		}
 		else if (method == "USER")
 		{
 			response = handleUser(client, line, buffer_stream);
-			
 		}
-		this->send_data[client.getSocket()] = makeSendData(client, response);
+		// else if (method == "WHOIS" || method == "WHO")
+		// {
+		// 	response = handleWho()
+		// }
+		this->send_data[client.getSocket()] = makeCRLF(response);
 
 		buffer = buffer.substr(pos + 2, std::string::npos);
 	}
