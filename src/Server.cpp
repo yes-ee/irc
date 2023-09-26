@@ -203,14 +203,14 @@ std::string Server::handleUser(Client& client, std::stringstream& buffer_stream)
 
 	while (cnt < 4)
 	{
-		buffer_stream >> line;
-
-		if (line.empty())
+		if (!(buffer_stream >> line))
 			return ERR_NEEDMOREPARAMS(client.getNickname(), "USER");
 
 		name[cnt] = line;
 		cnt++;
 	}
+
+
 	
 	client.setUsername(name[0]);
 	client.setHostname(name[1]);
