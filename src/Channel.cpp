@@ -10,15 +10,21 @@ Channel::~Channel()
 
 }
 
-void Channel::setNum(int num)
+Channel::Channel(std::string& name) : name(name)
 {
-	this->num = num;
+
 }
 
-int Channel::getNum() const
+void Channel::setName(std::string& name)
 {
-	return this->num;
+	this->name = name;
 }
+
+std::string Channel::getName() const
+{
+	return this->name;
+}
+
 
 void Channel::setPassword(int password)
 {

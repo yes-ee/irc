@@ -10,7 +10,7 @@ Server::~Server()
 
 }
 
-Server::Server(int port, std::string password) : port(port), password(password)
+Server::Server(int port, std::string password) : port(port), password(password), servername("happyirc")
 {
 
 }
@@ -128,6 +128,8 @@ void Server::run()
                         clients[curr_event->ident].addBuffer(buf);
                         std::cout << "received data from " << curr_event->ident << ": " << clients[curr_event->ident].getBuffer() << std::endl;
 						parseData(clients[curr_event->ident]);
+						changeEvent(change_list, curr_event->ident, EVFILT_READ, EV_DISABLE, 0, 0, curr_event->udata);
+						changeEvent(change_list, curr_event->ident, EVFILT_WRITE, EV_ENABLE, 0, 0, curr_event->udata);
                     }
                 }
             }
@@ -137,11 +139,10 @@ void Server::run()
                 std::map<int, Client>::iterator it = clients.find(curr_event->ident);
                 if (it != clients.end())
                 {
-                    if (clients[curr_event->ident].getBuffer() != "")
+                    if (!send_data[curr_event->ident].empty())
                     {
                         int n;
 						
-						std::cout << "server : " + this->send_data[curr_event->ident] << std::endl;
                         if ((n = send(curr_event->ident, this->send_data[curr_event->ident].c_str(),
 								this->send_data[curr_event->ident].size(), 0) == -1))
                         {
@@ -150,8 +151,10 @@ void Server::run()
                         }
                         else
                         {
-							clients[curr_event->ident].clearBuffer();
+							//clients[curr_event->ident].clearBuffer();
 							this->send_data[curr_event->ident].clear();
+							changeEvent(change_list, curr_event->ident, EVFILT_WRITE, EV_DISABLE, 0, 0, curr_event->udata);
+							changeEvent(change_list, curr_event->ident, EVFILT_READ, EV_ENABLE, 0, 0, curr_event->udata);
 						}
                     }
                 }
@@ -160,24 +163,29 @@ void Server::run()
     }
 }
 
-std::string Server::handleUser(Client& client, std::string& cmd)
+std::string Server::handleUser(Client& client, std::string& cmd, std::stringstream& buffer_stream)
 {
-	std::stringstream buffer_stream(cmd);
 	std::string line;
 
 	buffer_stream >> line;
 	client.setUsername(line);
 	buffer_stream >> line;
+	client.setHostname(line);
 	buffer_stream >> line;
-	this->network_name = line;
-	buffer_stream >> line;
+	this->servername = line;
+	line = buffer_stream.str();
+
 	// : 로 realname 인식할 것
-	std::string realname(line.begin() + 1, line.end());
-	client.setRealname(realname);
+	if (line.length() > 0 && line[0] == ':')
+	{
+		std::string realname = line.substr(1, std::string::npos);
+		client.setRealname(realname);
+		std::cout << "realname : " << client.getRealname();
+	}
 	//"<client> :Welcome to the <networkname> Network, <nick>[!<user>@<host>]"
 	// error일 경우 해당하는 에러 메세지 담아서 보낼 것
 	// /r/n 제외 msg만 보내고 나중에 /r/n 더해서 send
-	return (":Welcome to the " + this->network_name + " Network, " + client.getNickname());
+	return "Welcome to the Internet Relay Network " + client.getNickname() + "!" + client.getUsername() + "@" + client.getHostname();
 }
 
 std::string Server::handlePass(Client& client, std::string& cmd)
@@ -206,35 +214,70 @@ std::string Server::handlePass(Client& client, std::string& cmd)
 	return "";
 }
 
+std::string Server::makeSendData(Client& client, std::string& cmd)
+{
+	std::string status_code = "001";
+	return status_code + " :" + this->servername + " " + cmd + "\r\n";
+}
+
 void Server::parseData(Client& client)
 {
 	std::string buffer = client.getBuffer();
-	std::stringstream buffer_stream(buffer);
 
-	std::string method;
+	size_t pos = 0;
 
-	buffer_stream >> method;
-	std::string line;
-	buffer_stream >> line;
-
-	std::string response;
-	
-	if (method == "NICK")
+	while (1)
 	{
-		// 닉네임 유효성 검사
-		client.setNickname(line);
-	}
-	if (method == "CAP")
-	{
-		if (line == "LS" || line == "LIST")
+		std::string line;
+
+		if (buffer.find("\r\n") != std::string::npos)
 		{
-			this->send_data[client.getSocket()] = "CAP * " + line + " :" + "/r/n";
+			pos = buffer.find("\r\n");
+			line = buffer.substr(0, pos + 1);
+			std::cout << "line : " << line << std::endl;
 		}
+		else
+		{
+			std::string left_line = buffer;
+			client.clearBuffer();
+			if (!left_line.empty())
+				client.addBuffer(left_line);
+			break;
+		}
+
+		std::string response;
+
+		std::stringstream buffer_stream(line);
+
+		std::string method;
+
+		buffer_stream >> method;
+
+		if (method == "NICK")
+		{
+			// 닉네임 유효성 검사
+			std::string nickname;
+			buffer_stream >> nickname;
+			client.setNickname(nickname);
+			response = "";
+		}
+		else if (method == "CAP")
+		{
+			std::string ls;
+			buffer_stream >> ls;
+			if (ls == "LS")
+				response = "";
+		}
+		else if (method == "USER")
+		{
+			response = handleUser(client, line, buffer_stream);
+			
+		}
+		this->send_data[client.getSocket()] = makeSendData(client, response);
+
+		buffer = buffer.substr(pos + 2, std::string::npos);
 	}
-	if (method == "USER")
-	{
-		response = handleUser(client, line);
-	}
+	
 }
 
 
@@ -265,12 +308,12 @@ std::string Server::getPassword() const
 	return this->password;
 }
 
-void Server::addChannel(const Channel& channel)
+void Server::addChannel(std::string& channel)
 {
-	this->channels.push_back(channel);
+	this->channels[channel] = Channel(channel);
 }
 
-std::vector<Channel> Server::getChannels() const
+std::map<std::string, Channel> Server::getChannels() const
 {
 	return this->channels;
 }

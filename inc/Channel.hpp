@@ -10,7 +10,7 @@
 
 class Channel {
 	private:
-		int num;
+		std::string name;
 		int password;
 		int user_limit;
 		Client owner;
@@ -22,8 +22,9 @@ class Channel {
 	public:
 		Channel();
 		~Channel();
-		void setNum(int num);
-		int getNum() const;
+		Channel(std::string& name);
+		void setName(std::string& name);
+		std::string getName() const;
 		void setPassword(int password);
 		int getPassword() const;
 		void setOwner(Client& client);
