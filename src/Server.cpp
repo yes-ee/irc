@@ -323,7 +323,7 @@ void Server::parseData(Client& client)
 		}
 		else if (method == "USER")
 		{
-			response = handleUser(client, line, buffer_stream);
+			response = handleUser(client, buffer_stream);
 		}
 		else if (method == "PING")
 		{
