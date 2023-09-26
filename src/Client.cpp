@@ -36,14 +36,24 @@ std::string Client::getNickname() const
 	return this->nickname;
 }
 
-void Client::setUsername(std::string& userName)
+void Client::setUsername(std::string& username)
 {
-	this->username = userName;
+	this->username = username;
 }
 
 std::string Client::getUsername() const
 {
 	return this->username;
+}
+
+void Client::setRealname(std::string& realname)
+{
+	this->realname = realname;
+}
+
+std::string Client::getRealname() const
+{
+	return this->realname;
 }
 
 void Client::joinRequest(Channel& channel)

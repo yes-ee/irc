@@ -18,6 +18,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <exception>
+#include <sstream>
 
 class Server {
 	private:
@@ -25,12 +26,14 @@ class Server {
 		int password;
 		int server_socket;
 		int kq;
+		std::string network_name;
 		std::vector<struct kevent>	change_list;
 		struct kevent	*curr_event;
 		std::vector<char>	buffer;
 		struct kevent	event_list[1024];
 		std::vector<Channel> channels;
 		std::map<int, Client> clients;
+		std::map<int, std::string> send_data;
 	public:
 		Server();
 		Server(int port, int password);
@@ -51,6 +54,8 @@ class Server {
 			uintptr_t ident, int16_t filter, uint16_t flags, uint32_t fflags, intptr_t data, void *udata);
 		void run();
 		void disconnectClient(int client_fd);
+		void parseData(Client& client);
+		std::string handleUser(Client& client, std::string& cmd);
 
 	class	bindError: public std::exception
 	{

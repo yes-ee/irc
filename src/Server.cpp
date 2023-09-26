@@ -127,6 +127,7 @@ void Server::run()
                         buf[n] = '\0';
                         clients[curr_event->ident].addBuffer(buf);
                         std::cout << "received data from " << curr_event->ident << ": " << clients[curr_event->ident].getBuffer() << std::endl;
+						parseData(clients[curr_event->ident]);
                     }
                 }
             }
@@ -139,14 +140,19 @@ void Server::run()
                     if (clients[curr_event->ident].getBuffer() != "")
                     {
                         int n;
-                        if ((n = write(curr_event->ident, clients[curr_event->ident].getBuffer().c_str(),
-                                        clients[curr_event->ident].getBuffer().size()) == -1))
+						
+						std::cout << "server : " + this->send_data[curr_event->ident] << std::endl;
+                        if ((n = send(curr_event->ident, this->send_data[curr_event->ident].c_str(),
+								this->send_data[curr_event->ident].size(), 0) == -1))
                         {
                             std::cerr << "client write error!" << std::endl;
                             disconnectClient(curr_event->ident);  
                         }
                         else
-                            clients[curr_event->ident].clearBuffer();
+                        {
+							clients[curr_event->ident].clearBuffer();
+							this->send_data[curr_event->ident].clear();
+						}
                     }
                 }
             }
@@ -154,12 +160,65 @@ void Server::run()
     }
 }
 
+std::string Server::handleUser(Client& client, std::string& cmd)
+{
+	std::stringstream buffer_stream(cmd);
+
+	std::string line;
+
+	buffer_stream >> line;
+	client.setUsername(line);
+	buffer_stream >> line;
+	buffer_stream >> line;
+	this->network_name = line;
+	buffer_stream >> line;
+	// : 로 realname 인식할 것
+	std::string realname(line.begin() + 1, line.end());
+	client.setRealname(realname);
+	//"<client> :Welcome to the <networkname> Network, <nick>[!<user>@<host>]"
+	// error일 경우 해당하는 에러 메세지 담아서 보낼 것
+	// /r/n 제외 msg만 보내고 나중에 /r/n 더해서 send
+	return (client.getSocket() + " :Welcome to the " + this->network_name + " Network, " + client.getNickname());
+}
+
+void Server::parseData(Client& client)
+{
+	std::string buffer = client.getBuffer();
+	std::stringstream buffer_stream(buffer);
+
+	std::string method;
+
+	buffer_stream >> method;
+	std::string line;
+	buffer_stream >> line;
+
+	std::string response;
+	
+	if (method == "NICK")
+	{
+		// 닉네임 유효성 검사
+		client.setNickname(line);
+	}
+	if (method == "CAP")
+	{
+		if (line == "LS" || line == "LIST")
+		{
+			this->send_data[client.getSocket()] = "CAP * " + line + " :" + "/r/n";
+		}
+	}
+	if (method == "USER")
+	{
+		response = handleUser(client, line);
+	}
+}
+
+
+
 void Server::disconnectClient(int client_fd)
 {
     close(client_fd);
     this->clients.erase(client_fd);
 }
-
 
 void Server::setPort(int port)
 {
