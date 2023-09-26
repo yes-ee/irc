@@ -23,7 +23,7 @@
 class Server {
 	private:
 		int port;
-		int password;
+		std::string password;
 		int server_socket;
 		int kq;
 		std::string servername;
@@ -36,7 +36,7 @@ class Server {
 		std::map<int, std::string> send_data;
 	public:
 		Server();
-		Server(int port, int password);
+		Server(int port, std::string password);
 		~Server();
 		void init();
 		void setPort(int port);
@@ -45,8 +45,8 @@ class Server {
 		int getServerSocket() const;
 		void setKq(int kq);
 		int getKq() const;
-		void setPassword(int password);
-		int getPassword() const;
+		void setPassword(std::string password);
+		std::string getPassword() const;
 		void addChannel(std::string& channel);
 		std::map<std::string, Channel> getChannels() const;
 		std::map<int, Client> getClients() const;
@@ -55,6 +55,7 @@ class Server {
 		void run();
 		void disconnectClient(int client_fd);
 		void parseData(Client& client);
+		std::string handlePass(Client& client, std::string& cmd);
 		std::string makeSendData(Client& client, std::string& cmd);
 		std::string handleUser(Client& client, std::string& cmd, std::stringstream& buffer_stream);
 		std::string handleJoin(Client& client, std::string& cmd);

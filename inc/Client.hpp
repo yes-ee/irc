@@ -10,6 +10,7 @@ class Channel;
 class Client {
 	private:
 		int socket;
+		bool reg;
 		std::string buffer;
 		std::string nickname;
 		std::string hostname;
@@ -23,6 +24,8 @@ class Client {
 		Client(int socket);
 		void setSocket(int socket);
 		int getSocket() const;
+		void setRegister(bool flag);
+		bool getRegister() const;
 		void setNickname(std::string& nickname);
 		std::string getNickname() const;
 		void setHostname(std::string& hostname);

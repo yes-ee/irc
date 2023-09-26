@@ -9,7 +9,7 @@ SRCS = ${FILES:=.cpp}
 
 OBJS		:=	$(SRCS:.cpp=.o)
 
-NAME		:= irc
+NAME		:= ircserv
 
 .SUFFIXES : .cpp .o
 .cpp.o :

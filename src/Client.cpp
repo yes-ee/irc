@@ -14,6 +14,7 @@ Client::~Client()
 Client::Client(int socket) : socket(socket)
 {
 	this->buffer = "";
+	this->reg = false;
 }
 
 void Client::setSocket(int socket)
@@ -24,6 +25,16 @@ void Client::setSocket(int socket)
 int Client::getSocket() const
 {
 	return this->socket;
+}
+
+void Client::setRegister(bool flag)
+{
+	this->reg = flag;
+}
+
+bool Client::getRegister() const
+{
+	return this->reg;
 }
 
 void Client::setNickname(std::string& nickname)

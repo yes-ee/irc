@@ -10,7 +10,7 @@ Server::~Server()
 
 }
 
-Server::Server(int port, int password) : port(port), password(password), servername("happyirc")
+Server::Server(int port, std::string password) : port(port), password(password), servername("happyirc")
 {
 
 }
@@ -185,8 +185,33 @@ std::string Server::handleUser(Client& client, std::string& cmd, std::stringstre
 	//"<client> :Welcome to the <networkname> Network, <nick>[!<user>@<host>]"
 	// error일 경우 해당하는 에러 메세지 담아서 보낼 것
 	// /r/n 제외 msg만 보내고 나중에 /r/n 더해서 send
-	
 	return "Welcome to the Internet Relay Network " + client.getNickname() + "!" + client.getUsername() + "@" + client.getHostname();
+}
+
+std::string Server::handlePass(Client& client, std::string& cmd)
+{
+	// 이미 register된 클라이언트인 경우
+	if (client.getRegister())
+		return ":Unauthorized command (already registered)";
+
+	std::stringstream buffer_stream(cmd);
+	std::string line;
+	int cnt = 0;
+
+	// PASS 뒤에 파라미터 안 들어온 경우
+	if (buffer_stream >> line)
+		return "PASS :Not enough parameters";
+	
+	// password가 다른 경우
+	if (this->password != line)
+		return ":Password incorrect";
+
+	// 성공
+	client.setRegister(true);
+
+	// NICK, USER 받은 후 보내기
+	// return "Welcome to the Internet Relay Network " + client.getNickname();
+	return "";
 }
 
 std::string Server::makeSendData(Client& client, std::string& cmd)
@@ -273,12 +298,12 @@ int Server::getPort() const
 	return this->port;
 }
 
-void Server::setPassword(int password)
+void Server::setPassword(std::string password)
 {
 	this->password = password;
 }
 
-int Server::getPassword() const
+std::string Server::getPassword() const
 {
 	return this->password;
 }
