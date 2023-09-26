@@ -142,7 +142,7 @@ void Server::run()
                     if (!send_data[curr_event->ident].empty())
                     {
                         int n;
-						
+						std::cout << "send data from " << curr_event->ident << ": " << this->send_data[curr_event->ident] << std::endl;
                         if ((n = send(curr_event->ident, this->send_data[curr_event->ident].c_str(),
 								this->send_data[curr_event->ident].size(), 0) == -1))
                         {
@@ -151,7 +151,6 @@ void Server::run()
                         }
                         else
                         {
-							//clients[curr_event->ident].clearBuffer();
 							this->send_data[curr_event->ident].clear();
 							changeEvent(change_list, curr_event->ident, EVFILT_WRITE, EV_DISABLE, 0, 0, curr_event->udata);
 							changeEvent(change_list, curr_event->ident, EVFILT_READ, EV_ENABLE, 0, 0, curr_event->udata);
@@ -275,13 +274,114 @@ std::string Server::handlePingpong(Client& client, std::stringstream& buffer_str
 	buffer_stream >> ping;
 
 	if (ping.empty())
-		response = ERR_NOORIGIN();
+		response = ERR_NOORIGIN(client.getNickname());
 	else
 		response = RPL_PONG(client.getPrefix(), ping);
 	return response;
 }
 
-std::string Server::makeCRLF(std::string& cmd)
+std::string Server::handleJoin(Client& client, std::stringstream& buffer_stream)
+{
+	std::string response;
+
+	std::string ch_name;
+	std::string key;
+
+	buffer_stream >> ch_name;
+	buffer_stream >> key;
+
+	if (ch_name.empty())
+	{
+		// join 이후 아무 매개변수도 들어오지 않았을 경우
+		response = ERR_NEEDMOREPARAMS(client.getNickname(), "JOIN");
+		return response;
+	}
+	if (client.getChannels().size() > CLIENT_CHANLIMIT)
+	{
+		// 클라이언트가 최대 채널 수에 가입했을 경우
+		response = ERR_TOOMANYCHANNELS(client.getNickname(), ch_name);
+		return response;
+	}
+
+	Channel *p_channel;
+
+	if (this->channels.find(ch_name) != this->channels.end())
+		p_channel = this->channels[ch_name];
+	else
+		p_channel = createChannel(ch_name, key, client);
+	
+	if (p_channel->getUsers().size() + 1 > p_channel->getUserLimit())
+	{
+		// 채널의 제한 인원이 꽉 찼을 경우
+		response = ERR_CHANNELISFULL(client.getNickname(), ch_name);
+		return response;
+	}
+	if ((!p_channel->getPassword().empty() && key.empty()) 
+		|| (!p_channel->getPassword().empty() && key != p_channel->getPassword())
+			|| (p_channel->getPassword().empty() && !key.empty()))
+	{
+		// channel 비밀번호가 존재하는데 request에 비밀번호가 없을 경우
+		// channel 비밀번호가 존재하는데 request 비밀번호와 다를 경우
+		// channel 비밀번호가 존재하지 않는데 request 비밀번호가 존재할 경우
+		response = ERR_BADCHANNELKEY(client.getNickname(), ch_name);
+
+		std::cout << response;
+		return response;
+	}
+	if (p_channel->getInviteMode())
+	{
+		// invite only 채널일 경우
+		response = ERR_INVITEONLYCHAN(client.getNickname(), ch_name);
+		return response;
+	}
+	
+	try
+	{
+		p_channel->joinClient(client);
+		
+		std::string s_users = "";
+
+		std::map<std::string, Client> users;
+		
+
+		for(std::map<std::string, Client>::iterator it = users.begin(); it != users.end(); it++)
+		{
+			s_users.append(it->first + " ");
+		}
+
+		response = makeCRLF(RPL_NAMREPLY(client.getNickname(), '=', ch_name, s_users));
+		response += makeCRLF(RPL_ENDOFNAMES(client.getNickname(), ch_name));
+		broadcast(ch_name, RPL_JOIN(client.getNickname(), ch_name));
+	}
+	catch(const std::exception& e)
+	{
+		// channel에서 ban 됐을 경우
+		response = ERR_BANNEDFROMCHAN(client.getNickname(), ch_name);
+	}
+	return response;
+}
+
+void Server::broadcast(std::string& channel_name, const std::string& msg)
+{
+	Channel *channel = this->channels[channel_name];
+
+	std::map<std::string, Client> users = channel->getUsers();
+	for(std::map<std::string, Client>::iterator u_it = users.begin(); u_it != users.end(); u_it++)
+	{
+		int c_socket = u_it->second.getSocket();
+		this->send_data[c_socket] += makeCRLF(msg);
+		changeEvent(change_list, c_socket, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, NULL);
+	}
+}
+
+Channel* Server::createChannel(std::string& channel_name, std::string& key, Client& client)
+{
+	Channel* channel = new Channel(channel_name, key, client);
+	this->channels[channel_name] = channel;
+	return channel;
+}
+
+std::string Server::makeCRLF(const std::string& cmd)
 {
 	return cmd + "\r\n";
 }
@@ -326,7 +426,7 @@ void Server::parseData(Client& client)
 			else
 			{
 				response = ERR_PASSWDMISMATCH(client.getNickname());
-				this->send_data[client.getSocket()] = makeCRLF(response);
+				this->send_data[client.getSocket()] += makeCRLF(response);
 				client.clearBuffer();
 				// 비밀번호 틀린 경우 클라이언트 접속 해제
 				return ;
@@ -344,19 +444,20 @@ void Server::parseData(Client& client)
 		{
 			response = handlePingpong(client, buffer_stream);
 		}
+		else if (method == "JOIN")
+		{
+			response = handleJoin(client, buffer_stream);
+		}
 		// else if (method == "WHOIS" || method == "WHO")
 		// {
 		// 	response = handleWho()
 		// }
-		this->send_data[client.getSocket()] = makeCRLF(response);
+		this->send_data[client.getSocket()] += makeCRLF(response);
 		std::cout << "send data : " << response << std::endl;
 
 		buffer = buffer.substr(pos + 2, std::string::npos);
 	}
-	
 }
-
-
 
 void Server::disconnectClient(int client_fd)
 {
@@ -384,12 +485,7 @@ std::string Server::getPassword() const
 	return this->password;
 }
 
-void Server::addChannel(std::string& channel)
-{
-	this->channels[channel] = Channel(channel);
-}
-
-std::map<std::string, Channel> Server::getChannels() const
+std::map<std::string, Channel*> Server::getChannels() const
 {
 	return this->channels;
 }
