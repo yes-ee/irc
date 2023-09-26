@@ -113,3 +113,11 @@ bool operator==(const Client& lhs, const Client& rhs)
 {
 	return (lhs == rhs);
 }
+
+std::string Client::getPrefix() const
+{
+    std::string username = "!" + this->username;
+    std::string hostname = "@" + this->hostname;
+
+    return this->nickname + username + hostname;
+}

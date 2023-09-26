@@ -20,9 +20,11 @@
 #include <exception>
 #include <sstream>
 
-#define OK_WELCOME(user)			"001 " + user + " :Welcome to the happyirc network " + user + "!"
 #define ERR_NONICKNAMEGIVEN(user)	"431 " + user + " :Nickname not given"
 #define ERR_NICKNAMEINUSE(user)		"433 " + user + " " + user + " :Nickname is already in use"
+#define RPL_WELCOME(user)			"001 " + user + " :Welcome to the happyirc network " + user + "!"
+#define RPL_PONG(user, ping)		":" + user + " PONG :" + ping
+#define ERR_NOORIGIN()				":No origin specified"
 #define ERR_PASSWDMISMATCH(user)	"464 " + user + " :Password is incorrect"
 
 class Server {
@@ -67,6 +69,7 @@ class Server {
 		std::string handleUser(Client& client, std::stringstream& buffer_stream);
 		std::string handleJoin(Client& client, std::string& cmd);
 		std::string handleWho(Client& client, std::stringstream buffer_stream);
+		std::string handlePingpong(Client& client, std::stringstream& buffer_stream);
 
 	class	bindError: public std::exception
 	{
