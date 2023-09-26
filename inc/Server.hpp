@@ -26,12 +26,12 @@ class Server {
 		int password;
 		int server_socket;
 		int kq;
-		std::string network_name;
+		std::string servername;
 		std::vector<struct kevent>	change_list;
 		struct kevent	*curr_event;
 		std::vector<char>	buffer;
 		struct kevent	event_list[1024];
-		std::vector<Channel> channels;
+		std::map<std::string, Channel> channels;
 		std::map<int, Client> clients;
 		std::map<int, std::string> send_data;
 	public:
@@ -47,15 +47,17 @@ class Server {
 		int getKq() const;
 		void setPassword(int password);
 		int getPassword() const;
-		void addChannel(const Channel& channel);
-		std::vector<Channel> getChannels() const;
+		void addChannel(std::string& channel);
+		std::map<std::string, Channel> getChannels() const;
 		std::map<int, Client> getClients() const;
 		void changeEvent(std::vector<struct kevent>& change_list, 
 			uintptr_t ident, int16_t filter, uint16_t flags, uint32_t fflags, intptr_t data, void *udata);
 		void run();
 		void disconnectClient(int client_fd);
 		void parseData(Client& client);
-		std::string handleUser(Client& client, std::string& cmd);
+		std::string makeSendData(Client& client, std::string& cmd);
+		std::string handleUser(Client& client, std::string& cmd, std::stringstream& buffer_stream);
+		std::string handleJoin(Client& client, std::string& cmd);
 
 	class	bindError: public std::exception
 	{
