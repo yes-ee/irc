@@ -195,7 +195,7 @@ std::string Server::handleNick(Client& client, std::stringstream& buffer_stream)
 }
 
 
-std::string Server::handleUser(Client& client, std::string& cmd, std::stringstream& buffer_stream)
+std::string Server::handleUser(Client& client, std::stringstream& buffer_stream)
 {
 	std::string line;
 

@@ -64,7 +64,7 @@ class Server {
 		std::string handlePass(Client& client, std::stringstream& buffer_stream);
 		std::string handleNick(Client& client, std::stringstream& buffer_stream);
 		std::string makeCRLF(std::string& cmd);
-		std::string handleUser(Client& client, std::string& cmd, std::stringstream& buffer_stream);
+		std::string handleUser(Client& client, std::stringstream& buffer_stream);
 		std::string handleJoin(Client& client, std::string& cmd);
 		std::string handleWho(Client& client, std::stringstream buffer_stream);
 
