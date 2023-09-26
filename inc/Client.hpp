@@ -13,8 +13,9 @@ class Client {
 		bool reg;
 		std::string buffer;
 		std::string nickname;
-		std::string hostname;
 		std::string username;
+		std::string hostname;
+		std::string servername;
 		std::string realname;
 		std::vector<Channel> channels;
 
@@ -28,10 +29,12 @@ class Client {
 		bool getRegister() const;
 		void setNickname(std::string& nickname);
 		std::string getNickname() const;
-		void setHostname(std::string& hostname);
-		std::string getHostname() const;
 		void setUsername(std::string& username);
 		std::string getUsername() const;
+		void setHostname(std::string& hostname);
+		std::string getHostname() const;
+		void setServername(std::string& servername);
+		std::string getServername() const;
 		void setRealname(std::string& realname);
 		std::string getRealname() const;
 		void joinRequest(Channel& channel);
