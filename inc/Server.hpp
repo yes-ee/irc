@@ -26,7 +26,7 @@ class Server {
 		int password;
 		int server_socket;
 		int kq;
-		std::string network_name;
+		std::string servername;
 		std::vector<struct kevent>	change_list;
 		struct kevent	*curr_event;
 		std::vector<char>	buffer;
@@ -55,7 +55,9 @@ class Server {
 		void run();
 		void disconnectClient(int client_fd);
 		void parseData(Client& client);
-		std::string handleUser(Client& client, std::string& cmd);
+		std::string makeSendData(Client& client, std::string& cmd);
+		std::string handleUser(Client& client, std::string& cmd, std::stringstream& buffer_stream);
+		std::string handleJoin(Client& client, std::string& cmd);
 
 	class	bindError: public std::exception
 	{

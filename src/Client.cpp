@@ -36,6 +36,17 @@ std::string Client::getNickname() const
 	return this->nickname;
 }
 
+void Client::setHostname(std::string& hostname)
+{
+	this->hostname = hostname;
+}
+
+std::string Client::getHostname() const
+{
+	return this->hostname;
+}
+
+
 void Client::setUsername(std::string& username)
 {
 	this->username = username;
