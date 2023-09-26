@@ -210,8 +210,6 @@ std::string Server::handleUser(Client& client, std::stringstream& buffer_stream)
 		cnt++;
 	}
 
-
-	
 	client.setUsername(name[0]);
 	client.setHostname(name[1]);
 	client.setServername(name[2]);
@@ -259,6 +257,26 @@ std::string Server::handlePass(Client& client, std::stringstream& buffer_stream)
 	client.setRegister(true);
 
 	return "";
+}
+
+std::string Server::handleQuit(Client& client, std::stringstream& buffer_stream)
+{
+	std::string line;
+	std::string message;
+
+	if (!(buffer_stream >> line))
+		return "leaving";
+
+	message = line;
+
+	while (1)
+	{
+		if (!(buffer_stream >> line))
+			break;
+		message += " " + line;
+	}
+
+	return message;
 }
 
 // std::string Server::handleWho(Client& client, std::stringstream buffer_stream)
@@ -312,6 +330,7 @@ void Server::parseData(Client& client)
 		}
 
 		std::string method;
+		std::string message;
 		std::string response;
 		std::stringstream buffer_stream(line);
 
@@ -343,6 +362,20 @@ void Server::parseData(Client& client)
 		else if (method == "PING")
 		{
 			response = handlePingpong(client, buffer_stream);
+		}
+		else if (method == "QUIT")
+		{
+			message = handleQuit(client, buffer_stream);
+
+			// response = ERR_QUIT(client.getPrefix(), message);
+			// this->send_data[client.getSocket()] += makeCRLF(response);
+			
+			//broadcast response() in channel
+			// response = RPL_QUIT(client.getPrefix(), message);
+			//changeEvent(change_list, client.getSocket(), EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, NULL);
+			// this->disconnectClient(client.getSocket());
+			close(client.getSocket());
+			break;
 		}
 		// else if (method == "WHOIS" || method == "WHO")
 		// {

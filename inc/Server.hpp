@@ -24,6 +24,8 @@
 #define ERR_NICKNAMEINUSE(user)				"433 " + user + " " + user + " :Nickname is already in use"
 #define RPL_WELCOME(user)					"001 " + user + " :Welcome to the happyirc network " + user + "!"
 #define RPL_PONG(user, ping)				":" + user + " PONG :" + ping
+#define RPL_QUIT(user, message)				":" + user + " QUIT :Quit: " + message
+#define ERR_QUIT(user, message)				"ERROR :Closing link: (" + user + ") [Quit: " + message + "]"
 #define ERR_NOORIGIN()						":No origin specified"
 #define ERR_ALREADYREGISTRED(source)		"462 " + source + " :You may not register"
 #define ERR_NEEDMOREPARAMS(source, command)	"461 " + source + " " + command + " :Not enough parameters"
@@ -69,9 +71,9 @@ class Server {
 		std::string handleNick(Client& client, std::stringstream& buffer_stream);
 		std::string makeCRLF(std::string& cmd);
 		std::string handleUser(Client& client, std::stringstream& buffer_stream);
-		std::string handleJoin(Client& client, std::string& cmd);
-		// std::string handleWho(Client& client, std::stringstream buffer_stream);
 		std::string handlePingpong(Client& client, std::stringstream& buffer_stream);
+		std::string handleQuit(Client& client, std::stringstream& buffer_stream);
+		// std::string handleWho(Client& client, std::stringstream buffer_stream);
 
 	class	bindError: public std::exception
 	{
