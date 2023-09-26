@@ -240,12 +240,12 @@ int Server::getPassword() const
 	return this->password;
 }
 
-void Server::addChannel(const Channel& channel)
+void Server::addChannel(std::string& channel)
 {
-	this->channels.push_back(channel);
+	this->channels[channel] = Channel(channel);
 }
 
-std::vector<Channel> Server::getChannels() const
+std::map<std::string, Channel> Server::getChannels() const
 {
 	return this->channels;
 }
