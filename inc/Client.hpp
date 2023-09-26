@@ -41,6 +41,7 @@ class Client {
 		void addBuffer(std::string data);
 		std::string getBuffer() const;
 		void clearBuffer();
+		std::string getPrefix() const;
 };
 
 		bool operator==(const Client& lhs, const Client& rhs);
