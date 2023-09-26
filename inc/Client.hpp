@@ -3,7 +3,9 @@
 
 #include "iostream"
 #include "string"
-#include "vector"
+#include "map"
+
+#define CLIENT_CHANLIMIT 3
 
 class Channel;
 
@@ -17,7 +19,7 @@ class Client {
 		std::string hostname;
 		std::string servername;
 		std::string realname;
-		std::vector<Channel> channels;
+		std::map<std::string, Channel> channels;
 
 	public:
 		Client();
@@ -42,6 +44,7 @@ class Client {
 		std::string getBuffer() const;
 		void clearBuffer();
 		std::string getPrefix() const;
+		std::map<std::string, Channel> getChannels() const;
 };
 
 		bool operator==(const Client& lhs, const Client& rhs);

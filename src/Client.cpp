@@ -120,3 +120,8 @@ std::string Client::getPrefix() const
 
     return this->nickname + username + hostname;
 }
+
+std::map<std::string, Channel> Client::getChannels() const
+{
+	return this->channels;
+}
