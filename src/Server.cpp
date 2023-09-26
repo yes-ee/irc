@@ -470,10 +470,16 @@ void Server::parseData(Client& client)
 			// response = ERR_QUIT(client.getPrefix(), message);
 			// this->send_data[client.getSocket()] += makeCRLF(response);
 			
+			response = RPL_QUIT(client.getPrefix(), message);
+
 			//broadcast response() in channel
-			// response = RPL_QUIT(client.getPrefix(), message);
-			//changeEvent(change_list, client.getSocket(), EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, NULL);
-			// this->disconnectClient(client.getSocket());
+			std::map<std::string, Channel> channels = client.getChannels();
+
+			for (std::map<std::string, Channel>::iterator m_it = channels.begin(); m_it != channels.end(); m_it++)
+			{
+				this->broadcast(m_it->second.getName(), message);	
+			}
+
 			close(client.getSocket());
 			break;
 		}
