@@ -58,7 +58,7 @@ class Server {
 		void run();
 		void disconnectClient(int client_fd);
 		void parseData(Client& client);
-		std::string handlePass(Client& client, std::string& cmd);
+		std::string handlePass(Client& client, std::stringstream buffer_stream);
 		std::string makeCRLF(std::string& cmd);
 		std::string handleUser(Client& client, std::string& cmd, std::stringstream& buffer_stream);
 		std::string handleJoin(Client& client, std::string& cmd);

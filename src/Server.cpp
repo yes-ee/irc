@@ -189,18 +189,17 @@ std::string Server::handleUser(Client& client, std::string& cmd, std::stringstre
 	return response;
 }
 
-std::string Server::handlePass(Client& client, std::string& cmd)
+std::string Server::handlePass(Client& client, std::stringstream buffer_stream)
 {
 	// 이미 register된 클라이언트인 경우
 	if (client.getRegister())
 		return ":Unauthorized command (already registered)";
 
-	std::stringstream buffer_stream(cmd);
 	std::string line;
 	int cnt = 0;
 
 	// PASS 뒤에 파라미터 안 들어온 경우
-	if (buffer_stream >> line)
+	if (!(buffer_stream >> line))
 		return "PASS :Not enough parameters";
 	
 	// password가 다른 경우
@@ -259,24 +258,28 @@ void Server::parseData(Client& client)
 
 		buffer_stream >> method;
 
-		if (method != "CAP" && !client.getRegister())
+		if (!client.getRegister())
 		{
+			// CAP 인 경우 다음 메소드 처리
+			if (method == "CAP")
+				continue;
 			if (method == "PASS")
 			{
 				buffer_stream >> line;
 				response = handlePass(client, line);
-				client.setRegister(true);
 			}
 			else
 			{
 				response = ERR_PASSWDMISMATCH(client.getNickname());
 				this->send_data[client.getSocket()] = makeCRLF(response);
 				client.clearBuffer();
+				// 비밀번호 틀린 경우 클라이언트 접속 해제
 				return ;
 			}
 		}
 		else if (method == "NICK")
 		{
+			
 			// 닉네임 유효성 검사
 			std::string nickname;
 			buffer_stream >> nickname;
