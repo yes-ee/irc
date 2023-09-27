@@ -19,6 +19,7 @@
 #include <sys/types.h>
 #include <exception>
 #include <sstream>
+#include <set>
 
 // error
 #define ERR_TOOMANYCHANNELS(user, channel)				"405 " + user + " " + channel + " :You have joined too many channels"
@@ -63,6 +64,7 @@ class Server {
 		std::map<int, Client> clients;
 		std::map<std::string, Client> clients_by_name;
 		std::map<int, std::string> send_data;
+		std::set<int> close_client;
 	public:
 		Server();
 		Server(int port, std::string password);

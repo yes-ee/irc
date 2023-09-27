@@ -38,6 +38,15 @@ bool Client::getRegister() const
 	return this->reg;
 }
 
+bool Client::getClose() const
+{
+	return this->close;
+}
+void Client::setClose(bool flag)
+{
+	this->close = flag;
+}
+
 void Client::setNickname(std::string& nickname)
 {
 	this->nickname = nickname;
