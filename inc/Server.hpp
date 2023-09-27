@@ -21,27 +21,29 @@
 #include <sstream>
 
 // error
-#define ERR_NEEDMOREPARAMS(user, cmd)						"461 " + user + " " + cmd + " :Not enough parameters"
-#define ERR_PASSWDMISMATCH(user)							"464 " + user + " :Password is incorrect"
-#define ERR_NOORIGIN(user)									"465 " + user + " :No origin specified"
-#define ERR_TOOMANYCHANNELS(user, channel)					"405 " + user + " " + channel + " :You have joined too many channels"
+#define ERR_NONICKNAMEGIVEN(user)			            "431 " + user + " :Nickname not given"
+#define ERR_NICKNAMEINUSE(user)				            "433 " + user + " " + user + " :Nickname is already in use"
+#define ERR_ALREADYREGISTRED(source)		          "462 " + source + " :You may not register"
+#define ERR_NEEDMOREPARAMS(source, command)	      "461 " + source + " " + command + " :Not enough parameters"
+#define ERR_PASSWDMISMATCH(user)			            "464 " + user + " :Password incorrect"
+#define ERR_NOORIGIN(user)									      "465 " + user + " :No origin specified"
+#define ERR_TOOMANYCHANNELS(user, channel)				"405 " + user + " " + channel + " :You have joined too many channels"
 #define ERR_CHANNELISFULL(user, channel)					"471 " + user + " " + channel + " :Cannot join channel (+1)"
 #define ERR_INVITEONLYCHAN(user, channel)					"473 " + user + " " + channel + " :Cannot join channel (+i)"
 #define ERR_BANNEDFROMCHAN(user, channel)					"474 " + user + " " + channel + " :Cannot join channel (+b)"
 #define ERR_BADCHANNELKEY(user, channel)					"475 " + user + " " + channel + " :Cannot join channel (+k)"
 
 // numeric
-#define RPL_WELCOME(user)									"001 " + user + " :Welcome to the happyirc network " + user + "!"
-#define RPL_TOPIC(user, channel, topic)						"332 " + user + " " + channel + " :" + topic
+#define RPL_WELCOME(user)									              "001 " + user + " :Welcome to the happyirc network " + user + "!"
+#define RPL_TOPIC(user, channel, topic)						      "332 " + user + " " + channel + " :" + topic
 #define RPL_TOPICWHOTIME(user, channel, nick, setat)		"333 " + user + " " + channel + " " + nick + " " + setat
 #define RPL_NAMREPLY(user, symbol, channel, users) 			"353 " + user + " " + symbol + " " + channel + " :" + users
-#define RPL_ENDOFNAMES(user, channel)						"366 " + user + " " + channel + " :End of /NAMES list."
+#define RPL_ENDOFNAMES(user, channel)						        "366 " + user + " " + channel + " :End of /NAMES list."
 
 // command
-#define RPL_PONG(user, ping)								":" + user + " PONG :" + ping
+#define RPL_PONG(user, ping)								  ":" + user + " PONG :" + ping
 #define RPL_JOIN(user, channel)								":" + user + " JOIN :" + channel
-#define RPL_PRIVMSG(user, target, msg)						":" + user + " PRIVMSG " + target + " :" + msg
-
+#define RPL_PRIVMSG(user, target, msg)				":" + user + " PRIVMSG " + target + " :" + msg
 
 
 class Server {
@@ -57,6 +59,7 @@ class Server {
 		struct kevent	event_list[1024];
 		std::map<std::string, Channel*> channels;
 		std::map<int, Client> clients;
+		std::map<std::string, Client> clients_by_name;
 		std::map<int, std::string> send_data;
 	public:
 		Server();
@@ -78,11 +81,13 @@ class Server {
 		void run();
 		void disconnectClient(int client_fd);
 		void parseData(Client& client);
-		std::string handlePass(Client& client, std::string& cmd);
+  
 		std::string makeCRLF(const std::string& cmd);
-		std::string handleUser(Client& client, std::string& cmd, std::stringstream& buffer_stream);
 		std::string handleJoin(Client& client, std::stringstream& buffer_stream);
-		std::string handleWho(Client& client, std::stringstream buffer_stream);
+		//std::string handleWho(Client& client, std::stringstream buffer_stream);
+		std::string handlePass(Client& client, std::stringstream& buffer_stream);
+		std::string handleNick(Client& client, std::stringstream& buffer_stream);
+		std::string handleUser(Client& client, std::stringstream& buffer_stream);
 		std::string handlePingpong(Client& client, std::stringstream& buffer_stream);
 		std::string handlePrivmsg(Client& client, std::stringstream& buffer_stream);
 		Channel* createChannel(std::string& channel_name, std::string& key, Client& client);

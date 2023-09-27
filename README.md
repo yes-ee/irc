@@ -33,6 +33,13 @@ apt-get update && apt-get upgrade -y
 apt-get install irssi -y
 # timezone 6, 69 선택
 
-# irssi -c <host> -p <port> -n <nickname>
-irssi -c 10.12.6.3 -p 8080 -n nickname
+# irssi -c <host> -p <port> -n <nickname> -w <password>
+irssi -c 10.12.6.3 -p 8080 -n nickname -w 1234
+```
+
+##### netcat 사용
+```bash
+# nc [options] <host> <port>
+nc -c 10.12.6.3 8080
+# c : CRLF
 ```

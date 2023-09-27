@@ -162,63 +162,109 @@ void Server::run()
     }
 }
 
-std::string Server::handleUser(Client& client, std::string& cmd, std::stringstream& buffer_stream)
+std::string Server::handleNick(Client& client, std::stringstream& buffer_stream)
 {
-	std::string line;
+	std::string name;
+	std::string cur_nick;
+	std::string response = "";
 
-	buffer_stream >> line;
-	client.setUsername(line);
-	buffer_stream >> line;
-	client.setHostname(line);
-	buffer_stream >> line;
-	client.setServername(line);
-	this->servername = line;
-	line = buffer_stream.str();
+	//NICK 뒤에 파라미터 안 들어온 경우
+	if (!(buffer_stream >> name))
+		response = ERR_NONICKNAMEGIVEN(client.getNickname());
 
-	// : 로 realname 인식할 것
-	if (line.length() > 0 && line[0] == ':')
+	//닉네임 설정
+	else
 	{
-		std::string realname = line.substr(1, std::string::npos);
-		client.setRealname(realname);
+		// 닉네임 중복 체크
+		if (this->clients_by_name.find(name) != this->clients_by_name.end())
+		{
+			response = ERR_NICKNAMEINUSE(name);
+		}
+		else
+		{
+			cur_nick = client.getNickname();
+			clients_by_name.erase(cur_nick);
+			client.setNickname(name);
+			this->clients_by_name[name] = client;
+			response = ":" + cur_nick + " NICK :" + name;
+		}
 	}
-	//"<client> :Welcome to the <networkname> Network, <nick>[!<user>@<host>]"
-	// error일 경우 해당하는 에러 메세지 담아서 보낼 것
-	// /r/n 제외 msg만 보내고 나중에 /r/n 더해서 send
-	std::string response = RPL_WELCOME(client.getNickname());
+
 	return response;
 }
 
-std::string Server::handlePass(Client& client, std::string& cmd)
+
+std::string Server::handleUser(Client& client, std::stringstream& buffer_stream)
+{
+	std::string line;
+	std::string name[4];
+	int cnt = 0;
+
+	while (cnt < 4)
+	{
+		if (!(buffer_stream >> line))
+			return ERR_NEEDMOREPARAMS(client.getNickname(), "USER");
+
+		name[cnt] = line;
+		cnt++;
+	}
+
+
+	
+	client.setUsername(name[0]);
+	client.setHostname(name[1]);
+	client.setServername(name[2]);
+
+	if (name[3][0] == ':')
+	{
+		name[3] = line.substr(1);
+		while (buffer_stream >> line)
+		{
+			std::cout << line << std::endl;
+			name[3] += " " + line;
+			std::cout << "name : " << name[3] << std::endl;
+		}
+
+		client.setRealname(name[3]);
+	}
+
+	//"<client> :Welcome to the <networkname> Network, <nick>[!<user>@<host>]"
+	// error일 경우 해당하는 에러 메세지 담아서 보낼 것
+	// /r/n 제외 msg만 보내고 나중에 /r/n 더해서 send
+
+	std::cout << client.getUsername() << " " << client.getHostname() << " " << client.getServername() << " " << client.getRealname() << std::endl;
+
+	return RPL_WELCOME(client.getNickname());
+}
+
+std::string Server::handlePass(Client& client, std::stringstream& buffer_stream)
 {
 	// 이미 register된 클라이언트인 경우
 	if (client.getRegister())
-		return ":Unauthorized command (already registered)";
+		return ERR_ALREADYREGISTRED(client.getNickname());
 
-	std::stringstream buffer_stream(cmd);
 	std::string line;
 	int cnt = 0;
 
 	// PASS 뒤에 파라미터 안 들어온 경우
-	if (buffer_stream >> line)
-		return "PASS :Not enough parameters";
+	if (!(buffer_stream >> line))
+		return ERR_NEEDMOREPARAMS(client.getNickname(), "PASS");
 	
 	// password가 다른 경우
 	if (this->password != line)
-		return ":Password incorrect";
+		return ERR_PASSWDMISMATCH(client.getNickname());
 
 	// 성공
 	client.setRegister(true);
 
-	// NICK, USER 받은 후 보내기
-	// return "Welcome to the Internet Relay Network " + client.getNickname();
 	return "";
 }
 
-std::string Server::handleWho(Client& client, std::stringstream buffer_stream)
-{
+// std::string Server::handleWho(Client& client, std::stringstream buffer_stream)
+// {
 
-	return "";
-}
+// 	return "";
+// }
 
 std::string Server::handlePingpong(Client& client, std::stringstream& buffer_stream)
 {
@@ -416,11 +462,9 @@ void Server::parseData(Client& client)
 			break;
 		}
 
-		std::string response;
-
-		std::stringstream buffer_stream(line);
-
 		std::string method;
+		std::string response;
+		std::stringstream buffer_stream(line);
 
 		buffer_stream >> method;
 
@@ -428,29 +472,24 @@ void Server::parseData(Client& client)
 		{
 			if (method == "PASS")
 			{
-				buffer_stream >> line;
-				response = handlePass(client, line);
-				client.setRegister(true);
+				response = handlePass(client, buffer_stream);
 			}
 			else
 			{
 				response = ERR_PASSWDMISMATCH(client.getNickname());
 				this->send_data[client.getSocket()] += makeCRLF(response);
 				client.clearBuffer();
+				// 비밀번호 틀린 경우 클라이언트 접속 해제
 				return ;
 			}
 		}
 		else if (method == "NICK")
 		{
-			// 닉네임 유효성 검사
-			std::string nickname;
-			buffer_stream >> nickname;
-			client.setNickname(nickname);
-			response = "";
+			response = handleNick(client, buffer_stream);
 		}
 		else if (method == "USER")
 		{
-			response = handleUser(client, line, buffer_stream);
+			response = handleUser(client, buffer_stream);
 		}
 		else if (method == "PING")
 		{
@@ -469,6 +508,7 @@ void Server::parseData(Client& client)
 		// 	response = handleWho()
 		// }
 		this->send_data[client.getSocket()] += makeCRLF(response);
+		std::cout << "send data : " << response << std::endl;
 
 		buffer = buffer.substr(pos + 2, std::string::npos);
 	}
