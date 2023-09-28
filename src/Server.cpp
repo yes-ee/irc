@@ -399,7 +399,8 @@ std::string Server::handleJoin(Client& client, std::stringstream& buffer_stream)
 	
 	try
 	{
-		p_channel->joinClient(client);
+		if (client.getNickname() != p_channel->getOwner().getNickname())
+			p_channel->joinClient(client);
 		client.joinChannel(p_channel);
 		
 		std::string s_users = "";
@@ -501,6 +502,33 @@ std::string Server::makeCRLF(const std::string& cmd)
 	return cmd + "\r\n";
 }
 
+std::string Server::handleList(Client& client, std::stringstream& buffer_stream)
+{
+	std::string response;
+
+	std::string ch_name;
+	buffer_stream >> ch_name;
+	if (ch_name.empty())
+	{
+		response += makeCRLF(RPL_LISTSTART(client.getNickname()));
+		if (this->channels.size() > 0)
+		{
+			for (std::map<std::string, Channel*>::iterator it = this->channels.begin(); it != this->channels.end(); it++)
+			{
+				response += makeCRLF(RPL_LIST(client.getNickname(), it->first, std::to_string(it->second->getUsers().size()), "[" + it->second->getModeString() + "]", it->second->getTopic()));
+			}
+		}
+		response += makeCRLF(RPL_LISTEND(client.getNickname()));
+		return response;
+	}
+		response += makeCRLF(RPL_LISTSTART(client.getNickname()));
+		Channel* ch_po = this->channels[ch_name];
+		if (ch_po)
+			response += makeCRLF(RPL_LIST(client.getNickname(), ch_name, std::to_string(ch_po->getUsers().size()), "[" + ch_po->getModeString() + "]", ch_po->getTopic()));
+		response += makeCRLF(RPL_LISTEND(client.getNickname()));
+	return response;
+}
+
 void Server::parseData(Client& client)
 {
 	std::string buffer = client.getBuffer();
@@ -591,6 +619,10 @@ void Server::parseData(Client& client)
 		else if (method == "PRIVMSG")
 		{
 			response = handlePrivmsg(client, buffer_stream);
+		}
+		else if (method == "LIST")
+		{
+			response = handleList(client, buffer_stream);
 		}
 		// else if (method == "WHOIS" || method == "WHO")
 		// {
