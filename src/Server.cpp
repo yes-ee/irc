@@ -574,7 +574,7 @@ std::string Server::handleTopic(Client& client, std::stringstream& buffer_stream
 		response += makeCRLF(ERR_NOTONCHANNEL(client.getNickname(), channel));
 		return response;
 	}
-	if (!ch_po->isOperator(client))
+	if (!ch_po->isOperator(client) && (ch_po->getModes().find('t') != ch_po->getModes().end()))
 	{
 		// 권한 없는 유저가 변경하려고 하면 482 error
 		response += makeCRLF(ERR_CHANOPRIVSNEEDED(client.getNickname(), channel));
