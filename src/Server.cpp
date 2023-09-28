@@ -312,9 +312,6 @@ std::string Server::handleQuit(Client& client, std::stringstream& buffer_stream)
 
 	buffer_stream >> line;
 
-	// if (!(buffer_stream >> line))
-	// 	return "leaving";
-
 	message = line.substr(1);
 	std::cout << message << std::endl;
 
@@ -326,6 +323,73 @@ std::string Server::handleQuit(Client& client, std::stringstream& buffer_stream)
 	}
 
 	return message;
+}
+
+std::string Server::handleWho(Client& client, std::stringstream& buffer_stream)
+{
+	std::string name;
+	std::string ch_name;
+	std::string option = "H";
+	std::string reply;
+	std::string response = "";
+
+	buffer_stream >> name;
+
+	if (!name.empty())
+	{
+		// channel name
+		if (name[0] == '#')
+		{
+			for (std::map<std::string, Channel*>::iterator m_it = this->channels.begin(); m_it != this->channels.end(); m_it++)
+			{
+				ch_name = m_it->second->getName();
+				if (name == ch_name)
+				{
+					std::map<std::string, Client> users = m_it->second->getUsers();
+
+					for (std::map<std::string, Client>::iterator u_it = users.begin(); u_it  != users.end(); u_it++)
+					{
+						option = "H";
+						if (m_it->second->isOperator(u_it->second))
+							option += "@";
+
+						reply = RPL_WHOREPLY(client.getNickname(), ch_name, u_it->second.getUsername(), u_it->second.getHostname(), \
+									u_it->second.getServername(), u_it->second.getNickname(), option, u_it->second.getRealname());
+						response += makeCRLF(reply);
+					}
+				}
+			}
+		}
+		// user name
+		else
+		{
+			for (std::map<int, Client>::iterator u_it = this->clients.begin(); u_it != this->clients.end(); u_it++)
+			{
+				if (name == u_it->second.getNickname())
+				{
+					if (u_it->second.getChannels().empty())
+					{
+						ch_name = "*";
+					}
+					else
+					{
+						ch_name = u_it->second.getChannels().begin()->first;
+						Channel* ch = this->channels[ch_name];
+						if (ch->isOperator(u_it->second))
+							option += "@";
+					}
+
+					reply = RPL_WHOREPLY(client.getNickname(), ch_name, u_it->second.getUsername(), u_it->second.getHostname(), \
+								u_it->second.getServername(), u_it->second.getNickname(), option, u_it->second.getRealname());
+					response += makeCRLF(reply);
+				}
+			}
+		}
+	}
+
+	response += RPL_ENDOFWHO(client.getNickname(), name);
+
+	return response;
 }
 
 std::string Server::handlePingpong(Client& client, std::stringstream& buffer_stream)
@@ -683,14 +747,14 @@ void Server::parseData(Client& client)
 		{
 			response = handleList(client, buffer_stream);
 		}
+		else if (method == "WHO")
+		{
+			response = handleWho(client, buffer_stream);
+		}
 		else if (method == "TOPIC")
 		{
 			response = handleTopic(client, buffer_stream);
 		}
-		// else if (method == "WHOIS" || method == "WHO")
-		// {
-		// 	response = handleWho()
-		// }
 		this->send_data[client.getSocket()] += makeCRLF(response);
 		std::cout << "send data : " << response << std::endl;
 

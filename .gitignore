@@ -32,7 +32,3 @@
 *.app
 
 *.vscode
-
-# not program files
-init_docker.sh
-doc.txt
