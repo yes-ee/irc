@@ -419,15 +419,55 @@ std::string Server::handleJoin(Client& client, std::stringstream& buffer_stream)
 	if (ch_name.empty())
 	{
 		// join 이후 아무 매개변수도 들어오지 않았을 경우
-		response = ERR_NEEDMOREPARAMS(client.getNickname(), "JOIN");
+		response += ERR_NEEDMOREPARAMS(client.getNickname(), "JOIN");
 		return response;
 	}
 	if (client.getChannels().size() > CLIENT_CHANLIMIT)
 	{
 		// 클라이언트가 최대 채널 수에 가입했을 경우
-		response = ERR_TOOMANYCHANNELS(client.getNickname(), ch_name);
+		response += ERR_TOOMANYCHANNELS(client.getNickname(), ch_name);
 		return response;
 	}
+
+	std::vector<std::string> channels;
+
+	std::stringstream channel_stream(ch_name);
+	std::string channel;
+	while (std::getline(channel_stream, channel, ','))
+	{
+		channel.erase(std::remove(channel.begin(), channel.end(), '\r'));
+		channel.erase(std::remove(channel.begin(), channel.end(), '\n'));
+		channels.push_back(channel);
+	}
+
+	std::vector<std::string> keys;
+
+	std::stringstream key_stream(key);
+	std::string channel_key;
+	while (std::getline(key_stream, channel_key, ','))
+	{
+		channel_key.erase(std::remove(channel_key.begin(), channel_key.end(), '\r'));
+		channel_key.erase(std::remove(channel_key.begin(), channel_key.end(), '\n'));
+		keys.push_back(channel_key);
+	}
+
+	int i = 0;
+
+	for(std::vector<std::string>::iterator it = channels.begin(); it != channels.end(); it++)
+	{
+		if (i < keys.size())
+			key = keys[i];
+		else
+			key = "";
+		response += clientJoinChannel(client, *it, key);
+		i++;
+	}
+	return response;
+}
+
+std::string Server::clientJoinChannel(Client& client, std::string& ch_name, std::string& key)
+{
+	std::string response;
 
 	Channel *p_channel;
 
@@ -435,11 +475,11 @@ std::string Server::handleJoin(Client& client, std::stringstream& buffer_stream)
 		p_channel = this->channels[ch_name];
 	else
 		p_channel = createChannel(ch_name, key, client);
-	
+
 	if (p_channel->getUsers().size() + 1 > p_channel->getUserLimit())
 	{
 		// 채널의 제한 인원이 꽉 찼을 경우
-		response = ERR_CHANNELISFULL(client.getNickname(), ch_name);
+		response += ERR_CHANNELISFULL(client.getNickname(), ch_name);
 		return response;
 	}
 	if ((!p_channel->getPassword().empty() && key.empty()) 
@@ -449,15 +489,14 @@ std::string Server::handleJoin(Client& client, std::stringstream& buffer_stream)
 		// channel 비밀번호가 존재하는데 request에 비밀번호가 없을 경우
 		// channel 비밀번호가 존재하는데 request 비밀번호와 다를 경우
 		// channel 비밀번호가 존재하지 않는데 request 비밀번호가 존재할 경우
-		response = ERR_BADCHANNELKEY(client.getNickname(), ch_name);
+		response += ERR_BADCHANNELKEY(client.getNickname(), ch_name);
 
-		std::cout << response;
 		return response;
 	}
 	if (p_channel->getInviteMode())
 	{
 		// invite only 채널일 경우
-		response = ERR_INVITEONLYCHAN(client.getNickname(), ch_name);
+		response += ERR_INVITEONLYCHAN(client.getNickname(), ch_name);
 		return response;
 	}
 	
@@ -489,7 +528,7 @@ std::string Server::handleJoin(Client& client, std::stringstream& buffer_stream)
 	catch(const std::exception& e)
 	{
 		// channel에서 ban 됐을 경우
-		response = ERR_BANNEDFROMCHAN(client.getNickname(), ch_name);
+		response += makeCRLF(ERR_BANNEDFROMCHAN(client.getNickname(), ch_name));
 	}
 	return response;
 }
