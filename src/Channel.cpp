@@ -18,10 +18,12 @@ Channel::Channel(std::string& name, std::string& key, Client& client) : name(nam
 	{
 		this->password = key;
 	}
+	this->topic = "";
 	this->users[nick] = client;
 	this->auth[nick] = OWNER;
 	this->modes.insert('n');
 	this->modes.insert('t');
+	std::cout << "channel name is " << name << std::endl; 
 }
 
 void Channel::setName(std::string& name)
@@ -34,7 +36,6 @@ std::string Channel::getName() const
 	return this->name;
 }
 
-
 void Channel::setPassword(std::string& password)
 {
 	this->password = password;
@@ -45,9 +46,11 @@ std::string Channel::getPassword() const
 	return this->password;
 }
 
-void Channel::setTopic(std::string& topic)
+void Channel::setTopic(Client& client, std::string& topic)
 {
 	this->topic = topic;
+	setTopicTime();
+	this->topic_set_user = client.getPrefix();
 }
 
 std::string Channel::getTopic() const
@@ -94,8 +97,6 @@ void Channel::setOperator(const Client& client)
 
 bool Channel::isOperator(const Client& client)
 {
-	// std::cout << "isoperator" << std::endl;
-	// std::cout << this->auth[client.getNickname()] << std::endl;
 	if (this->auth[client.getNickname()] <= OPERATOR)
 		return true;
 	return false;
@@ -207,4 +208,24 @@ std::string Channel::getModeString() const
 void Channel::deleteClient(std::string nickname)
 {
 	this->users.erase(nickname);
+}
+
+void Channel::setTopicTime()
+{
+	time_t timer;
+    struct tm* t;
+
+	timer = time(NULL);
+	t = localtime(&timer);
+	this->topic_set_time = std::to_string(timer);
+}
+
+std::string Channel::getTopicTime()
+{
+	return this->topic_set_time;
+}
+
+std::string Channel::getTopicUser()
+{
+	return this->topic_set_user;
 }
