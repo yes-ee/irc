@@ -47,6 +47,7 @@ class Client {
 		std::string getBuffer() const;
 		void clearBuffer();
 		std::string getPrefix() const;
+		void joinChannel(const Channel* channel);
 		std::map<std::string, Channel> getChannels() const;
 };
 

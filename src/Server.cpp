@@ -397,6 +397,7 @@ std::string Server::handleJoin(Client& client, std::stringstream& buffer_stream)
 	try
 	{
 		p_channel->joinClient(client);
+		client.joinChannel(p_channel);
 		
 		std::string s_users = "";
 
@@ -420,6 +421,40 @@ std::string Server::handleJoin(Client& client, std::stringstream& buffer_stream)
 	return response;
 }
 
+std::string Server::handlePrivmsg(Client& client, std::stringstream& buffer_stream)
+{
+	std::string target;
+	std::string msg;
+
+	buffer_stream >> target;
+	msg = buffer_stream.str();
+
+	for (std::map<int, Client>::iterator c_it = this->clients.begin(); c_it != this->clients.end(); c_it++)
+	{
+		std::string name = c_it->second.getNickname();
+		if (target == name)
+		{
+			directMsg(c_it->second, RPL_PRIVMSG(client.getNickname(), target, msg));
+			break ;
+		}
+		std::map<std::string, Channel> c_ch = c_it->second.getChannels();
+		std::map<std::string, Channel>::iterator find = c_ch.find(target);
+		if (find != c_ch.end())
+		{
+			broadcastNotSelf(target, RPL_PRIVMSG(client.getNickname(), target, msg), client.getSocket());
+			break ;
+		}
+	}
+	// error 처리
+	return "";
+}
+
+void Server::directMsg(Client& to, const std::string& msg)
+{
+	this->send_data[to.getSocket()] += makeCRLF(msg);
+	changeEvent(change_list, to.getSocket(), EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, NULL);
+}
+
 void Server::broadcast(std::string& channel_name, const std::string& msg)
 {
 	Channel *channel = this->channels[channel_name];
@@ -430,6 +465,22 @@ void Server::broadcast(std::string& channel_name, const std::string& msg)
 		int c_socket = u_it->second.getSocket();
 		this->send_data[c_socket] += makeCRLF(msg);
 		changeEvent(change_list, c_socket, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, NULL);
+	}
+}
+
+void Server::broadcastNotSelf(std::string& channel_name, const std::string& msg, int self)
+{
+	Channel *channel = this->channels[channel_name];
+
+	std::map<std::string, Client> users = channel->getUsers();
+	for(std::map<std::string, Client>::iterator u_it = users.begin(); u_it != users.end(); u_it++)
+	{
+		int c_socket = u_it->second.getSocket();
+		if (c_socket != self)
+		{
+			this->send_data[c_socket] += makeCRLF(msg);
+			changeEvent(change_list, c_socket, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, NULL);
+		}
 	}
 }
 
@@ -535,6 +586,10 @@ void Server::parseData(Client& client)
 		else if (method == "JOIN")
 		{
 			response = handleJoin(client, buffer_stream);
+		}
+		else if (method == "PRIVMSG")
+		{
+			response = handlePrivmsg(client, buffer_stream);
 		}
 		// else if (method == "WHOIS" || method == "WHO")
 		// {
