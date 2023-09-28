@@ -26,10 +26,10 @@ class Channel {
 		Client owner;
 		std::string topic;
 		std::map<std::string, Client> users;
-		std::map<std::string, int> auth;
 		std::vector<std::string> ban;
 		std::set<char> modes;
 	public:
+		std::map<std::string, int> auth;
 		Channel();
 		~Channel();
 		Channel(std::string& name, std::string& key, Client& client);

@@ -94,7 +94,9 @@ void Channel::setOperator(const Client& client)
 
 bool Channel::isOperator(const Client& client)
 {
-	if (this->auth[client.getNickname()] >= OPERATOR)
+	// std::cout << "isoperator" << std::endl;
+	// std::cout << this->auth[client.getNickname()] << std::endl;
+	if (this->auth[client.getNickname()] <= OPERATOR)
 		return true;
 	return false;
 }

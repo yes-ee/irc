@@ -38,8 +38,10 @@
 
 // numeric
 #define RPL_WELCOME(user)								"001 " + user + " :Welcome to the happyirc network " + user + "!"
-#define RPL_TOPIC(user, channel, topic)					"332 " + user + " " + channel + " :" + topic
 #define RPL_TOPICWHOTIME(user, channel, nick, setat)	"333 " + user + " " + channel + " " + nick + " " + setat
+#define RPL_TOPIC(user, channel, topic)					"332 " + user + " " + channel + " :" + topic
+#define RPL_WHOREPLY(client, channel, user, host, server, nick, opt, real)	"352 " + client + " " + channel + " " + user + " " + host + " " + server + " " + nick + " " + opt + " " + ":0 " + real
+#define RPL_ENDOFWHO(user, name)						"315 " + user + " " + name + " :End of /WHO list"
 #define RPL_NAMREPLY(user, symbol, channel, users) 		"353 " + user + " " + symbol + " " + channel + " :" + users
 #define RPL_ENDOFNAMES(user, channel)					"366 " + user + " " + channel + " :End of /NAMES list."
 #define RPL_LISTSTART(user)								"321 " + user + " Channel :Users Name"
@@ -69,7 +71,6 @@ class Server {
 		std::map<int, Client> clients;
 		std::map<std::string, Client> clients_by_name;
 		std::map<int, std::string> send_data;
-		std::set<int> close_client;
 	public:
 		Server();
 		Server(int port, std::string password);
@@ -93,12 +94,12 @@ class Server {
   
 		std::string makeCRLF(const std::string& cmd);
 		std::string handleJoin(Client& client, std::stringstream& buffer_stream);
-		//std::string handleWho(Client& client, std::stringstream buffer_stream);
 		std::string handlePass(Client& client, std::stringstream& buffer_stream);
 		std::string handleNick(Client& client, std::stringstream& buffer_stream);
 		std::string handleUser(Client& client, std::stringstream& buffer_stream);
 		std::string handlePingpong(Client& client, std::stringstream& buffer_stream);
 		std::string handleQuit(Client& client, std::stringstream& buffer_stream);
+		std::string handleWho(Client& client, std::stringstream& buffer_stream);
 		std::string handlePrivmsg(Client& client, std::stringstream& buffer_stream);
 		std::string handleList(Client& client, std::stringstream& buffer_stream);
 		Channel* createChannel(std::string& channel_name, std::string& key, Client& client);
