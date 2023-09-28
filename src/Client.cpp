@@ -136,6 +136,11 @@ void Client::joinChannel(const Channel* channel)
 	this->channels[channel->getName()] = *channel;
 }
 
+void Client::leaveChannel(Channel *channel)
+{
+	this->channels.erase(channel->getName());
+}
+
 std::map<std::string, Channel> Client::getChannels() const
 {
 	return this->channels;

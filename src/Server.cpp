@@ -585,6 +585,60 @@ std::string Server::handleTopic(Client& client, std::stringstream& buffer_stream
 	return "";
 }
 
+std::string Server::handlePart(Client& client, std::stringstream& buffer_stream)
+{
+	std::string response;
+	std::string channel_line;
+
+	buffer_stream >> channel_line;
+
+	std::vector<std::string> v_channels;
+
+	std::stringstream new_stream(channel_line);
+	std::string channel;
+	while (std::getline(new_stream, channel, ','))
+	{
+		channel.erase(std::remove(channel.begin(), channel.end(), '\r'));
+		channel.erase(std::remove(channel.begin(), channel.end(), '\n'));
+		v_channels.push_back(channel);
+	}
+
+	for (std::vector<std::string>::iterator it = v_channels.begin(); it != v_channels.end(); it++)
+	{
+		if (this->channels.find(*it) == this->channels.end())
+		{
+			// 없는 채널일 경우 403
+			response += makeCRLF(ERR_NOSUCHCHANNEL(client.getNickname(), *it));
+			return response;
+		}
+		Channel *ch_po = this->channels[*it];
+
+		std::map<std::string, Client> users = ch_po->getUsers();
+		if (users.find(client.getNickname()) == users.end())
+		{
+			// 채널에 유저가 없을 때 나가려고 하면 442 error
+			response += makeCRLF(ERR_NOTONCHANNEL(client.getNickname(), *it));
+			return response;
+		}
+		clientLeaveChannel(client, ch_po);
+	}
+	return response;
+}
+
+void Server::clientLeaveChannel(Client& client, Channel *channel)
+{
+	std::string ch_name = channel->getName();
+	broadcast(ch_name, makeCRLF(RPL_PART(client.getPrefix(), ch_name)));
+	client.leaveChannel(channel);
+	channel->deleteClient(client.getNickname());
+	if (channel->getUsers().size() == 0)
+	{
+		this->channels.erase(ch_name);
+		delete channel;
+		channel = 0;
+	}
+}
+
 void Server::parseData(Client& client)
 {
 	std::string buffer = client.getBuffer();
@@ -687,6 +741,10 @@ void Server::parseData(Client& client)
 		else if (method == "TOPIC")
 		{
 			response = handleTopic(client, buffer_stream);
+		}
+		else if (method == "PART")
+		{
+			response = handlePart(client, buffer_stream);
 		}
 		// else if (method == "WHOIS" || method == "WHO")
 		// {

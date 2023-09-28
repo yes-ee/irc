@@ -208,6 +208,7 @@ std::string Channel::getModeString() const
 void Channel::deleteClient(std::string nickname)
 {
 	this->users.erase(nickname);
+	this->auth.erase(nickname);
 }
 
 void Channel::setTopicTime()
