@@ -60,7 +60,7 @@
 #define RPL_QUIT(user, message) ":" + user + " QUIT :Quit: " + message
 #define RPL_PONG(user, ping) ":" + user + " PONG :" + ping
 #define RPL_JOIN(user, channel) ":" + user + " JOIN :" + channel
-#define RPL_PRIVMSG(user, target, msg) ":" + user + " PRIVMSG " + target + " " + msg
+#define RPL_PRIVMSG(user, target, msg) ":" + user + " PRIVMSG " + target + msg
 #define RPL_MY_TOPIC(user, channel, topic) ":" + user + " TOPIC " + channel + " " + topic
 #define RPL_PART(user, channel) ":" + user + " PART " + " :" + channel
 
