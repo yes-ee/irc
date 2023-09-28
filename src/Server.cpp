@@ -428,10 +428,9 @@ std::string Server::handlePrivmsg(Client& client, std::stringstream& buffer_stre
 
 
 	buffer_stream >> target;
-
-	std::string line;
-	while (buffer_stream >> line)
-		msg += line;
+	std::getline(buffer_stream, msg);
+	msg.erase(std::remove(msg.begin(), msg.end(), '\r'));
+	msg.erase(std::remove(msg.begin(), msg.end(), '\n'));
 	for (std::map<int, Client>::iterator c_it = this->clients.begin(); c_it != this->clients.end(); c_it++)
 	{
 		std::string name = c_it->second.getNickname();
