@@ -115,6 +115,7 @@ class Server {
 		void broadcast(std::string& channel_name, const std::string& msg);
 		void broadcastNotSelf(std::string& channel_name, const std::string& msg, int self);
 		void clientLeaveChannel(Client& client, Channel *channel);
+		std::string clientJoinChannel(Client& client, std::string& ch_name, std::string& key);
 
 	class	bindError: public std::exception
 	{
