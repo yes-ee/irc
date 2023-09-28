@@ -41,8 +41,9 @@
 #define RPL_ENDOFNAMES(user, channel)						        "366 " + user + " " + channel + " :End of /NAMES list."
 
 // command
-#define RPL_PONG(user, ping)								":" + user + " PONG :" + ping
-#define RPL_JOIN(user, channel)							":" + user + " JOIN :" + channel
+#define RPL_PONG(user, ping)								  ":" + user + " PONG :" + ping
+#define RPL_JOIN(user, channel)								":" + user + " JOIN :" + channel
+#define RPL_PRIVMSG(user, target, msg)				":" + user + " PRIVMSG " + target + " :" + msg
 
 
 class Server {
@@ -88,8 +89,11 @@ class Server {
 		std::string handleNick(Client& client, std::stringstream& buffer_stream);
 		std::string handleUser(Client& client, std::stringstream& buffer_stream);
 		std::string handlePingpong(Client& client, std::stringstream& buffer_stream);
+		std::string handlePrivmsg(Client& client, std::stringstream& buffer_stream);
 		Channel* createChannel(std::string& channel_name, std::string& key, Client& client);
+		void directMsg(Client& to, const std::string& msg);
 		void broadcast(std::string& channel_name, const std::string& msg);
+		void broadcastNotSelf(std::string& channel_name, const std::string& msg, int self);
 
 	class	bindError: public std::exception
 	{

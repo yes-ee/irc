@@ -122,6 +122,11 @@ std::string Client::getPrefix() const
     return this->nickname + username + hostname;
 }
 
+void Client::joinChannel(const Channel* channel)
+{
+	this->channels[channel->getName()] = *channel;
+}
+
 std::map<std::string, Channel> Client::getChannels() const
 {
 	return this->channels;
