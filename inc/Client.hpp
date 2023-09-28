@@ -13,6 +13,7 @@ class Client {
 	private:
 		int socket;
 		bool reg;
+		bool close;
 		std::string buffer;
 		std::string nickname;
 		std::string username;
@@ -29,6 +30,8 @@ class Client {
 		int getSocket() const;
 		void setRegister(bool flag);
 		bool getRegister() const;
+		void setClose(bool flag);
+		bool getClose() const;
 		void setNickname(std::string& nickname);
 		std::string getNickname() const;
 		void setUsername(std::string& username);

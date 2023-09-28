@@ -172,3 +172,8 @@ void Channel::setMode(std::string& command)
 	
 	// this->modes.insert(mode);
 }
+
+void Channel::deleteClient(std::string nickname)
+{
+	this->users.erase(nickname);
+}

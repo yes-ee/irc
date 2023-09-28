@@ -51,6 +51,7 @@ class Channel {
 		std::map<std::string, Client> getUsers() const;
 		bool validateCommand(std::vector<std::string>& mode_cmd, std::string& command);
 		void setMode(std::string& command);
+		void deleteClient(std::string nickname);
 
 		class	banError: public std::exception
 		{
