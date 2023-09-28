@@ -310,10 +310,10 @@ std::string Server::handleQuit(Client& client, std::stringstream& buffer_stream)
 	std::string line;
 	std::string message;
 
-	if (!(buffer_stream >> line))
-		return "leaving";
+	buffer_stream >> line;
 
-	message = line;
+	message = line.substr(1);
+	std::cout << message << std::endl;
 
 	while (1)
 	{
@@ -323,6 +323,73 @@ std::string Server::handleQuit(Client& client, std::stringstream& buffer_stream)
 	}
 
 	return message;
+}
+
+std::string Server::handleWho(Client& client, std::stringstream& buffer_stream)
+{
+	std::string name;
+	std::string ch_name;
+	std::string option = "H";
+	std::string reply;
+	std::string response = "";
+
+	buffer_stream >> name;
+
+	if (!name.empty())
+	{
+		// channel name
+		if (name[0] == '#')
+		{
+			for (std::map<std::string, Channel*>::iterator m_it = this->channels.begin(); m_it != this->channels.end(); m_it++)
+			{
+				ch_name = m_it->second->getName();
+				if (name == ch_name)
+				{
+					std::map<std::string, Client> users = m_it->second->getUsers();
+
+					for (std::map<std::string, Client>::iterator u_it = users.begin(); u_it  != users.end(); u_it++)
+					{
+						option = "H";
+						if (m_it->second->isOperator(u_it->second))
+							option += "@";
+
+						reply = RPL_WHOREPLY(client.getNickname(), ch_name, u_it->second.getUsername(), u_it->second.getHostname(), \
+									u_it->second.getServername(), u_it->second.getNickname(), option, u_it->second.getRealname());
+						response += makeCRLF(reply);
+					}
+				}
+			}
+		}
+		// user name
+		else
+		{
+			for (std::map<int, Client>::iterator u_it = this->clients.begin(); u_it != this->clients.end(); u_it++)
+			{
+				if (name == u_it->second.getNickname())
+				{
+					if (u_it->second.getChannels().empty())
+					{
+						ch_name = "*";
+					}
+					else
+					{
+						ch_name = u_it->second.getChannels().begin()->first;
+						Channel* ch = this->channels[ch_name];
+						if (ch->isOperator(u_it->second))
+							option += "@";
+					}
+
+					reply = RPL_WHOREPLY(client.getNickname(), ch_name, u_it->second.getUsername(), u_it->second.getHostname(), \
+								u_it->second.getServername(), u_it->second.getNickname(), option, u_it->second.getRealname());
+					response += makeCRLF(reply);
+				}
+			}
+		}
+	}
+
+	response += RPL_ENDOFWHO(client.getNickname(), name);
+
+	return response;
 }
 
 std::string Server::handlePingpong(Client& client, std::stringstream& buffer_stream)
@@ -706,22 +773,18 @@ void Server::parseData(Client& client)
 			response = ERR_QUIT(client.getPrefix(), message);
 			this->send_data[client.getSocket()] += makeCRLF(response);
 
-			// changeEvent(change_list, client.getSocket(), EVFILT_READ, EV_DISABLE, 0, 0, NULL);
-			// changeEvent(change_list, client.getSocket(), EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, NULL);
-
-			
 			// create response message
-			// response = RPL_QUIT(client.getPrefix(), message);
+			response = RPL_QUIT(client.getPrefix(), message);
 
 			//broadcast response() in channel
-			// std::map<std::string, Channel> channels = client.getChannels();
+			std::map<std::string, Channel> channels = client.getChannels();
 
 			// 들어가있는 모든 채널에 브로드캐스팅
-			// for (std::map<std::string, Channel>::iterator m_it = channels.begin(); m_it != channels.end(); m_it++)
-			// {
-			// 	std::string ch_name = m_it->second.getName();
-			// 	this->broadcast(ch_name, message);	
-			// }
+			for (std::map<std::string, Channel>::iterator m_it = channels.begin(); m_it != channels.end(); m_it++)
+			{
+				std::string ch_name = m_it->second.getName();
+				this->broadcastNotSelf(ch_name, response, client.getSocket());
+			}
 
 			client.setClose(true);
 			break;
@@ -738,6 +801,10 @@ void Server::parseData(Client& client)
 		{
 			response = handleList(client, buffer_stream);
 		}
+		else if (method == "WHO")
+		{
+			response = handleWho(client, buffer_stream);
+		}
 		else if (method == "TOPIC")
 		{
 			response = handleTopic(client, buffer_stream);
@@ -746,10 +813,6 @@ void Server::parseData(Client& client)
 		{
 			response = handlePart(client, buffer_stream);
 		}
-		// else if (method == "WHOIS" || method == "WHO")
-		// {
-		// 	response = handleWho()
-		// }
 		this->send_data[client.getSocket()] += makeCRLF(response);
 		std::cout << "send data : " << response << std::endl;
 
@@ -767,6 +830,7 @@ void Server::disconnectClient(int client_fd)
 	for (std::map<std::string, Channel>::iterator m_it = channels.begin(); m_it != channels.end(); m_it++)
 	{
 		ch_name = m_it->second.getName();
+		std::cout << "channel :" << ch_name << " users : " << m_it->second.getUsers().size() << std::endl;
 		this->channels[ch_name]->deleteClient(nickname);
 	}
 
@@ -775,6 +839,13 @@ void Server::disconnectClient(int client_fd)
     this->clients.erase(client_fd);
 	std::cout << "close client" << std::endl;
     close(client_fd);
+
+	for (std::map<std::string, Channel*>::iterator m_it = this->channels.begin(); m_it != this->channels.end(); m_it++)
+	{
+		ch_name = m_it->second->getName();
+		std::cout << "channel :" << ch_name << std::endl;
+		std::cout << this->channels[ch_name]->getUsers().size() << std::endl;
+	}
 }
 
 void Server::setPort(int port)
