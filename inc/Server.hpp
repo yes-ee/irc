@@ -60,6 +60,7 @@
 #define RPL_JOIN(user, channel)							":" + user + " JOIN :" + channel
 #define RPL_PRIVMSG(user, target, msg)					":" + user + " PRIVMSG " + target + " " + msg
 #define RPL_MY_TOPIC(user, channel, topic)				":" + user + " TOPIC " + channel + " " + topic
+#define RPL_PART(user, channel)							":" + user + " PART " + " :" + channel
 
 
 
@@ -110,10 +111,12 @@ class Server {
 		std::string handlePrivmsg(Client& client, std::stringstream& buffer_stream);
 		std::string handleList(Client& client, std::stringstream& buffer_stream);
 		std::string handleTopic(Client& client, std::stringstream& buffer_stream);
+		std::string handlePart(Client& client, std::stringstream& buffer_stream);
 		Channel* createChannel(std::string& channel_name, std::string& key, Client& client);
 		void directMsg(Client& to, const std::string& msg);
 		void broadcast(std::string& channel_name, const std::string& msg);
 		void broadcastNotSelf(std::string& channel_name, const std::string& msg, int self);
+		void clientLeaveChannel(Client& client, Channel *channel);
 
 	class	bindError: public std::exception
 	{

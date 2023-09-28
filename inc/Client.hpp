@@ -49,6 +49,7 @@ class Client {
 		std::string getPrefix() const;
 		void joinChannel(const Channel* channel);
 		std::map<std::string, Channel> getChannels() const;
+		void leaveChannel(Channel *channel);
 };
 
 		bool operator==(const Client& lhs, const Client& rhs);
