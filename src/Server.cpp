@@ -401,17 +401,17 @@ std::string Server::handleJoin(Client& client, std::stringstream& buffer_stream)
 		
 		std::string s_users = "";
 
-		std::map<std::string, Client> users;
-		
+		std::map<std::string, Client> users = p_channel->getUsers();
 
 		for(std::map<std::string, Client>::iterator it = users.begin(); it != users.end(); it++)
 		{
+			if (it->first == p_channel->getOwner().getNickname())
+				s_users.append("@");
 			s_users.append(it->first + " ");
 		}
-
+		broadcast(ch_name, RPL_JOIN(client.getPrefix(), ch_name));
 		response = makeCRLF(RPL_NAMREPLY(client.getNickname(), '=', ch_name, s_users));
 		response += makeCRLF(RPL_ENDOFNAMES(client.getNickname(), ch_name));
-		broadcast(ch_name, RPL_JOIN(client.getNickname(), ch_name));
 	}
 	catch(const std::exception& e)
 	{
@@ -426,22 +426,25 @@ std::string Server::handlePrivmsg(Client& client, std::stringstream& buffer_stre
 	std::string target;
 	std::string msg;
 
-	buffer_stream >> target;
-	msg = buffer_stream.str();
 
+	buffer_stream >> target;
+
+	std::string line;
+	while (buffer_stream >> line)
+		msg += line;
 	for (std::map<int, Client>::iterator c_it = this->clients.begin(); c_it != this->clients.end(); c_it++)
 	{
 		std::string name = c_it->second.getNickname();
 		if (target == name)
 		{
-			directMsg(c_it->second, RPL_PRIVMSG(client.getNickname(), target, msg));
+			directMsg(c_it->second, RPL_PRIVMSG(client.getPrefix(), target, msg));
 			break ;
 		}
 		std::map<std::string, Channel> c_ch = c_it->second.getChannels();
 		std::map<std::string, Channel>::iterator find = c_ch.find(target);
 		if (find != c_ch.end())
 		{
-			broadcastNotSelf(target, RPL_PRIVMSG(client.getNickname(), target, msg), client.getSocket());
+			broadcastNotSelf(target, RPL_PRIVMSG(client.getPrefix(), target, msg), client.getSocket());
 			break ;
 		}
 	}
