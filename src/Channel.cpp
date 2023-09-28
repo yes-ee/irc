@@ -20,6 +20,8 @@ Channel::Channel(std::string& name, std::string& key, Client& client) : name(nam
 	}
 	this->users[nick] = client;
 	this->auth[nick] = OWNER;
+	this->modes.insert('n');
+	this->modes.insert('t');
 }
 
 void Channel::setName(std::string& name)
@@ -42,6 +44,17 @@ std::string Channel::getPassword() const
 {
 	return this->password;
 }
+
+void Channel::setTopic(std::string& topic)
+{
+	this->topic = topic;
+}
+
+std::string Channel::getTopic() const
+{
+	return this->topic;
+}
+
 
 void Channel::setInviteMode(bool flag)
 {
@@ -171,6 +184,22 @@ void Channel::setMode(std::string& command)
 		return ;
 	
 	// this->modes.insert(mode);
+}
+
+std::set<char> Channel::getModes() const
+{
+	return this->modes;
+}
+
+std::string Channel::getModeString() const
+{
+	std::string mode = "+";
+
+	for (std::set<char>::iterator it = this->modes.begin(); it != this->modes.end(); it++)
+	{
+		mode += *it;
+	}
+	return mode;
 }
 
 void Channel::deleteClient(std::string nickname)

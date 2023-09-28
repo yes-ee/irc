@@ -37,6 +37,8 @@ class Channel {
 		std::string getName() const;
 		void setPassword(std::string& password);
 		std::string getPassword() const;
+		void setTopic(std::string& topic);
+		std::string getTopic() const;
 		void setInviteMode(bool flag);
 		bool getInviteMode() const;
 		void setOperator(const Client& client);
@@ -51,6 +53,8 @@ class Channel {
 		std::map<std::string, Client> getUsers() const;
 		bool validateCommand(std::vector<std::string>& mode_cmd, std::string& command);
 		void setMode(std::string& command);
+		std::set<char> getModes() const;
+		std::string getModeString() const;
 		void deleteClient(std::string nickname);
 
 		class	banError: public std::exception
