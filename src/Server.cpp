@@ -310,10 +310,13 @@ std::string Server::handleQuit(Client& client, std::stringstream& buffer_stream)
 	std::string line;
 	std::string message;
 
-	if (!(buffer_stream >> line))
-		return "leaving";
+	buffer_stream >> line;
 
-	message = line;
+	// if (!(buffer_stream >> line))
+	// 	return "leaving";
+
+	message = line.substr(1);
+	std::cout << message << std::endl;
 
 	while (1)
 	{
@@ -565,22 +568,18 @@ void Server::parseData(Client& client)
 			response = ERR_QUIT(client.getPrefix(), message);
 			this->send_data[client.getSocket()] += makeCRLF(response);
 
-			// changeEvent(change_list, client.getSocket(), EVFILT_READ, EV_DISABLE, 0, 0, NULL);
-			// changeEvent(change_list, client.getSocket(), EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, NULL);
-
-			
 			// create response message
-			// response = RPL_QUIT(client.getPrefix(), message);
+			response = RPL_QUIT(client.getPrefix(), message);
 
 			//broadcast response() in channel
-			// std::map<std::string, Channel> channels = client.getChannels();
+			std::map<std::string, Channel> channels = client.getChannels();
 
 			// 들어가있는 모든 채널에 브로드캐스팅
-			// for (std::map<std::string, Channel>::iterator m_it = channels.begin(); m_it != channels.end(); m_it++)
-			// {
-			// 	std::string ch_name = m_it->second.getName();
-			// 	this->broadcast(ch_name, message);	
-			// }
+			for (std::map<std::string, Channel>::iterator m_it = channels.begin(); m_it != channels.end(); m_it++)
+			{
+				std::string ch_name = m_it->second.getName();
+				this->broadcastNotSelf(ch_name, response, client.getSocket());
+			}
 
 			client.setClose(true);
 			break;
@@ -614,6 +613,7 @@ void Server::disconnectClient(int client_fd)
 	for (std::map<std::string, Channel>::iterator m_it = channels.begin(); m_it != channels.end(); m_it++)
 	{
 		ch_name = m_it->second.getName();
+		std::cout << "channel :" << ch_name << " users : " << m_it->second.getUsers().size() << std::endl;
 		this->channels[ch_name]->deleteClient(nickname);
 	}
 
@@ -622,6 +622,13 @@ void Server::disconnectClient(int client_fd)
     this->clients.erase(client_fd);
 	std::cout << "close client" << std::endl;
     close(client_fd);
+
+	for (std::map<std::string, Channel*>::iterator m_it = this->channels.begin(); m_it != this->channels.end(); m_it++)
+	{
+		ch_name = m_it->second->getName();
+		std::cout << "channel :" << ch_name << std::endl;
+		std::cout << this->channels[ch_name]->getUsers().size() << std::endl;
+	}
 }
 
 void Server::setPort(int port)
