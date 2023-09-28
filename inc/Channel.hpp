@@ -29,6 +29,8 @@ class Channel {
 		std::map<std::string, int> auth;
 		std::vector<std::string> ban;
 		std::set<char> modes;
+		std::string topic_set_time;
+		std::string topic_set_user;
 	public:
 		Channel();
 		~Channel();
@@ -37,7 +39,7 @@ class Channel {
 		std::string getName() const;
 		void setPassword(std::string& password);
 		std::string getPassword() const;
-		void setTopic(std::string& topic);
+		void setTopic(Client& client, std::string& topic);
 		std::string getTopic() const;
 		void setInviteMode(bool flag);
 		bool getInviteMode() const;
@@ -56,7 +58,10 @@ class Channel {
 		std::set<char> getModes() const;
 		std::string getModeString() const;
 		void deleteClient(std::string nickname);
-
+		void setTopicTime();
+		std::string getTopicTime();
+		std::string getTopicUser();
+		
 		class	banError: public std::exception
 		{
 			public:

@@ -20,6 +20,7 @@
 #include <exception>
 #include <sstream>
 #include <set>
+#include <ctime>
 
 // error
 #define ERR_TOOMANYCHANNELS(user, channel)				"405 " + user + " " + channel + " :You have joined too many channels"
@@ -34,23 +35,28 @@
 #define ERR_BANNEDFROMCHAN(user, channel)				"474 " + user + " " + channel + " :Cannot join channel (+b)"
 #define ERR_BADCHANNELKEY(user, channel)				"475 " + user + " " + channel + " :Cannot join channel (+k)"
 #define ERR_QUIT(user, message)							"ERROR :Closing link: (" + user + ") [Quit: " + message + "]"
-#define ERR_NOSUCHSERVER(server)						"402 " + server + " :No such server"
+#define ERR_NOSUCHSERVER(user, server)					"402 " + user + " " + server + " :No such server"
+#define ERR_NOSUCHCHANNEL(user, channel)				"403 " + user + " " + channel + " :No such channel"
+#define ERR_NOTONCHANNEL(user, channel)					"442 " + user + " " + channel + " :You're not on that channel"
+#define ERR_CHANOPRIVSNEEDED(user, channel)				"482 " + user + " " + channel + " :You're not channel operator"
 
 // numeric
 #define RPL_WELCOME(user)								"001 " + user + " :Welcome to the happyirc network " + user + "!"
-#define RPL_TOPIC(user, channel, topic)					"332 " + user + " " + channel + " :" + topic
+#define RPL_TOPIC(user, channel, topic)					"332 " + user + " " + channel + " " + topic
 #define RPL_TOPICWHOTIME(user, channel, nick, setat)	"333 " + user + " " + channel + " " + nick + " " + setat
 #define RPL_NAMREPLY(user, symbol, channel, users) 		"353 " + user + " " + symbol + " " + channel + " :" + users
 #define RPL_ENDOFNAMES(user, channel)					"366 " + user + " " + channel + " :End of /NAMES list."
 #define RPL_LISTSTART(user)								"321 " + user + " Channel :Users Name"
 #define	RPL_LIST(user, channel, visible, mode, topic)	"322 " + user + " " + channel + " " + visible + " :" + mode + " " + topic
 #define	RPL_LISTEND(user)								"323 " + user + ":End of /LIST"
+#define RPL_NOTOPIC(user, channel)						"331 " + user + " " + channel + " :No topic is set"			
 
 // command
 #define RPL_QUIT(user, message)							":" + user + " QUIT :Quit: " + message
 #define RPL_PONG(user, ping)							":" + user + " PONG :" + ping
 #define RPL_JOIN(user, channel)							":" + user + " JOIN :" + channel
 #define RPL_PRIVMSG(user, target, msg)					":" + user + " PRIVMSG " + target + " " + msg
+#define RPL_MY_TOPIC(user, channel, topic)				":" + user + " TOPIC " + channel + " " + topic
 
 
 
@@ -101,6 +107,7 @@ class Server {
 		std::string handleQuit(Client& client, std::stringstream& buffer_stream);
 		std::string handlePrivmsg(Client& client, std::stringstream& buffer_stream);
 		std::string handleList(Client& client, std::stringstream& buffer_stream);
+		std::string handleTopic(Client& client, std::stringstream& buffer_stream);
 		Channel* createChannel(std::string& channel_name, std::string& key, Client& client);
 		void directMsg(Client& to, const std::string& msg);
 		void broadcast(std::string& channel_name, const std::string& msg);

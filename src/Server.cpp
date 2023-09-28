@@ -414,7 +414,12 @@ std::string Server::handleJoin(Client& client, std::stringstream& buffer_stream)
 			s_users.append(it->first + " ");
 		}
 		broadcast(ch_name, RPL_JOIN(client.getPrefix(), ch_name));
-		response = makeCRLF(RPL_NAMREPLY(client.getNickname(), '=', ch_name, s_users));
+		if (!p_channel->getTopic().empty())
+		{
+			response += makeCRLF(RPL_TOPIC(client.getUsername(), ch_name, p_channel->getTopic()));
+			response += makeCRLF(RPL_TOPICWHOTIME(client.getUsername(), ch_name, p_channel->getTopicUser(), p_channel->getTopicTime()));
+		}
+		response += makeCRLF(RPL_NAMREPLY(client.getNickname(), '=', ch_name, s_users));
 		response += makeCRLF(RPL_ENDOFNAMES(client.getNickname(), ch_name));
 	}
 	catch(const std::exception& e)
@@ -529,6 +534,60 @@ std::string Server::handleList(Client& client, std::stringstream& buffer_stream)
 	return response;
 }
 
+std::string Server::handleTopic(Client& client, std::stringstream& buffer_stream)
+{
+	std::string response;
+	std::string channel;
+	std::string topic;
+
+	buffer_stream >> channel;
+	buffer_stream >> topic;
+	if (channel.empty())
+	{
+		// topic 명령어만 들어올 경우 461
+		response += makeCRLF(ERR_NEEDMOREPARAMS(client.getNickname(), "TOPIC"));
+		return response;
+	}
+	if (this->channels.find(channel) == this->channels.end())
+	{
+		// 없는 채널일 경우 403
+		response += makeCRLF(ERR_NOSUCHCHANNEL(client.getNickname(), channel));
+		return response;
+	}
+
+	Channel *ch_po = this->channels[channel];
+	
+	if (topic.empty())
+	{
+		// topic 없는 경우
+		if (ch_po->getTopic().empty())
+		{
+			response += makeCRLF(RPL_NOTOPIC(client.getNickname(), channel));
+			return response;
+		}
+		// 그냥 조회만 할 때 채널 있는 경우 332, 333
+		response += makeCRLF(RPL_TOPIC(client.getNickname(), channel, ch_po->getTopic()));
+		response += makeCRLF(RPL_TOPICWHOTIME(client.getNickname(), channel, ch_po->getTopicUser(), ch_po->getTopicTime()));
+		return response;
+	}
+	std::map<std::string, Client> users = ch_po->getUsers();
+	if (users.find(client.getNickname()) == users.end())
+	{
+		// 채널에 유저가 없을 때 변경하려고 하면 442 error
+		response += makeCRLF(ERR_NOTONCHANNEL(client.getNickname(), channel));
+		return response;
+	}
+	if (!ch_po->isOperator(client) && (ch_po->getModes().find('t') != ch_po->getModes().end()))
+	{
+		// 권한 없는 유저가 변경하려고 하면 482 error
+		response += makeCRLF(ERR_CHANOPRIVSNEEDED(client.getNickname(), channel));
+		return response;
+	}
+	ch_po->setTopic(client, topic);
+	broadcast(channel, makeCRLF(RPL_MY_TOPIC(client.getPrefix(), channel, topic)));
+	return "";
+}
+
 void Server::parseData(Client& client)
 {
 	std::string buffer = client.getBuffer();
@@ -623,6 +682,10 @@ void Server::parseData(Client& client)
 		else if (method == "LIST")
 		{
 			response = handleList(client, buffer_stream);
+		}
+		else if (method == "TOPIC")
+		{
+			response = handleTopic(client, buffer_stream);
 		}
 		// else if (method == "WHOIS" || method == "WHO")
 		// {
