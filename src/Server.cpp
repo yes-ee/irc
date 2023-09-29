@@ -2,17 +2,14 @@
 
 Server::Server()
 {
-
 }
 
 Server::~Server()
 {
-
 }
 
 Server::Server(int port, std::string password) : port(port), password(password), servername("happyirc")
 {
-
 }
 
 void Server::init()
@@ -21,7 +18,7 @@ void Server::init()
 	const int value = 1;
 	setsockopt(this->server_socket, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value));
 
-	sockaddr_in	server_address;
+	sockaddr_in server_address;
 
 	memset(&server_address, 0, sizeof(server_address));
 	server_address.sin_family = AF_INET;
@@ -30,7 +27,7 @@ void Server::init()
 
 	if (bind(this->server_socket, (struct sockaddr *)&server_address, sizeof(server_address)) == -1)
 	{
-		//수정 필요
+		// 수정 필요
 		close(this->port);
 		throw bindError();
 	}
@@ -53,11 +50,11 @@ void Server::init()
 }
 
 // change_list 에 새 이벤트 추가
-void Server::changeEvent(std::vector<struct kevent>& change_list, uintptr_t ident, int16_t filter, uint16_t flags, uint32_t fflags, intptr_t data, void *udata)
+void Server::changeEvent(std::vector<struct kevent> &change_list, uintptr_t ident, int16_t filter, uint16_t flags, uint32_t fflags, intptr_t data, void *udata)
 {
 	struct kevent temp_event;
 
-	// kevent 구조체인 temp_event를 인자들로 설정  
+	// kevent 구조체인 temp_event를 인자들로 설정
 	EV_SET(&temp_event, ident, filter, flags, fflags, data, udata);
 	// 설정한 이벤트를 kevent 배열에 추가
 	this->change_list.push_back(temp_event);
@@ -66,16 +63,16 @@ void Server::changeEvent(std::vector<struct kevent>& change_list, uintptr_t iden
 void Server::run()
 {
 	int new_events;
-    struct kevent* curr_event;
-    while (1)
-    {
-        /*  apply changes and return new events(pending events) */
+	struct kevent *curr_event;
+	while (1)
+	{
+		/*  apply changes and return new events(pending events) */
 		// change_list 에 있는 이벤트들을 kqueue에 등록
 		// change_list = 큐에 등록할 이벤트들이 담겨있는 배열
-        // event_list = 발생할 이벤트들이 리턴될 배열
+		// event_list = 발생할 이벤트들이 리턴될 배열
 		new_events = kevent(kq, &change_list[0], change_list.size(), event_list, 8, NULL);
-        if (new_events == -1)
-        {
+		if (new_events == -1)
+		{
 			close(this->port);
 			throw keventError();
 		}
@@ -88,109 +85,109 @@ void Server::run()
 		// close_client.clear();
 
 		// 큐에 다 담았으니 change_list 초기화
-        change_list.clear();
+		change_list.clear();
 
 		// 리턴된 이벤트를 체크
-        for (int i = 0; i < new_events; ++i)
-        {
+		for (int i = 0; i < new_events; ++i)
+		{
 			// 하나씩 돌면서 확인
-            curr_event = &event_list[i];
+			curr_event = &event_list[i];
 
 			// 이벤트 리턴값이 error인 경우 (이벤틑 처리 과정에서 에러 발생)
-            if (curr_event->flags & EV_ERROR)
-            {
+			if (curr_event->flags & EV_ERROR)
+			{
 				// 서버에서 에러가 난 경우 -> 서버 포트 닫고, 에러 던지고 프로그램 종료
-                if (curr_event->ident == server_socket)
-                {
+				if (curr_event->ident == server_socket)
+				{
 					close(this->port);
 					throw std::runtime_error("server socket error");
 				}
 				// 클라이언트에서 에러가 난 경우 -> 해당 클라이언트 소켓 닫기 (관련된 이미 등록된 이벤트는 큐에서 삭제됨)
-                else
-                {
-                    std::cerr << "client socket error" << std::endl;
-                    disconnectClient(curr_event->ident);
-                }
-            }
+				else
+				{
+					std::cerr << "client socket error" << std::endl;
+					disconnectClient(curr_event->ident);
+				}
+			}
 			// read 가 가능한 경우
-            else if (curr_event->filter == EVFILT_READ)
-            {
+			else if (curr_event->filter == EVFILT_READ)
+			{
 				// 서버인 경우 (클라이언트가 새로 접속한 경우)
-                if (curr_event->ident == server_socket)
-                {
-                    /* accept new client */
-                    int client_socket;
-                    if ((client_socket = accept(server_socket, NULL, NULL)) == -1)
-                        throw acceptError();
-                    std::cout << "accept new client: " << client_socket << std::endl;
-                    fcntl(client_socket, F_SETFL, O_NONBLOCK);
+				if (curr_event->ident == server_socket)
+				{
+					/* accept new client */
+					int client_socket;
+					if ((client_socket = accept(server_socket, NULL, NULL)) == -1)
+						throw acceptError();
+					std::cout << "accept new client: " << client_socket << std::endl;
+					fcntl(client_socket, F_SETFL, O_NONBLOCK);
 
-                    /* add event for client socket - add read && write event */
+					/* add event for client socket - add read && write event */
 					// 새로 등록된 경우 클라이언트의 read와 write 이벤트 모두 등록
-                    changeEvent(change_list, client_socket, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, NULL);
-                    changeEvent(change_list, client_socket, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, NULL);
-                    // 클라이언트 목록에 추가
+					changeEvent(change_list, client_socket, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, NULL);
+					changeEvent(change_list, client_socket, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, NULL);
+					// 클라이언트 목록에 추가
 					clients[client_socket] = Client(client_socket);
-                }
+				}
 				// 이미 연결된 클라이언트의 read 가 가능한 경우
-                else if (clients.find(curr_event->ident)!= clients.end())
-                {
-                    /* read data from client */
-                    char buf[1024];
+				else if (clients.find(curr_event->ident) != clients.end())
+				{
+					/* read data from client */
+					char buf[1024];
 					// 해당 클라이언트의 데이터 읽기
-                    int n = recv(curr_event->ident, buf, sizeof(buf), 0);
+					int n = recv(curr_event->ident, buf, sizeof(buf), 0);
 
 					// 에러 발생 시 클라이언트 연결 끊기
-                    if (n <= 0)
-                    {
-                        if (n < 0)
-                            std::cerr << "client read error!" << std::endl;
-                        disconnectClient(curr_event->ident);
-                    }
-                    else
-                    {
+					if (n <= 0)
+					{
+						if (n < 0)
+							std::cerr << "client read error!" << std::endl;
+						disconnectClient(curr_event->ident);
+					}
+					else
+					{
 						// if (clients[curr_event->ident].getClose())
 						// {
 						// 	std::cout << "end : not read" << std::endl;
 						// 	continue;
 						// }
-                        buf[n] = '\0';
-                        clients[curr_event->ident].addBuffer(buf);
-                        std::cout << "received data from " << curr_event->ident << ": " << clients[curr_event->ident].getBuffer() << std::endl;
+						buf[n] = '\0';
+						clients[curr_event->ident].addBuffer(buf);
+						std::cout << "received data from " << curr_event->ident << ": " << clients[curr_event->ident].getBuffer() << std::endl;
 						// 읽은 데이터 파싱해서 write할 데이터 클라이언트 배열의 버퍼에 넣기
 						parseData(clients[curr_event->ident]);
 						// read 이벤트 리턴 x -> 발생해도 큐에서 처리 x
 						changeEvent(change_list, curr_event->ident, EVFILT_READ, EV_DISABLE, 0, 0, curr_event->udata);
 						// write 이벤트 등록
 						changeEvent(change_list, curr_event->ident, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, curr_event->udata);
-                    }
-                }
-            }
+					}
+				}
+			}
 			// write 가 가능한 경우
-            else if (curr_event->filter == EVFILT_WRITE)
-            {
-                /* send data to client */
-                std::map<int, Client>::iterator it = clients.find(curr_event->ident);
-                if (it != clients.end())
-                {	// 버퍼가 비어있는 경우 전송 x
+			else if (curr_event->filter == EVFILT_WRITE)
+			{
+				/* send data to client */
+				std::map<int, Client>::iterator it = clients.find(curr_event->ident);
+				if (it != clients.end())
+				{ // 버퍼가 비어있는 경우 전송 x
 					// 버퍼에 문자가 있으면 전송
-                    if (!send_data[curr_event->ident].empty())
-                    {
-                        int n;
+					if (!send_data[curr_event->ident].empty())
+					{
+						int n;
 						std::cout << "send data from " << curr_event->ident << ": " << this->send_data[curr_event->ident] << std::endl;
-                        if ((n = send(curr_event->ident, this->send_data[curr_event->ident].c_str(),
-								this->send_data[curr_event->ident].size(), 0) == -1))
-                        {
+						if ((n = send(curr_event->ident, this->send_data[curr_event->ident].c_str(),
+									  this->send_data[curr_event->ident].size(), 0) == -1))
+						{
 							// 전송하다 에러난 경우 연결 끊기
-                            std::cerr << "client write error!" << std::endl;
-                            disconnectClient(curr_event->ident);  
-                        }
+							std::cerr << "client write error!" << std::endl;
+							disconnectClient(curr_event->ident);
+						}
 						// 전송 성공한 경우
 						// 버퍼 비우기
-                        else
-                        {
+						else
+						{
 							this->send_data[curr_event->ident].clear();
-								// disconnectClient(curr_event->ident);
+							// disconnectClient(curr_event->ident);
 							if (clients[curr_event->ident].getClose())
 							{
 								disconnectClient(curr_event->ident);
@@ -202,24 +199,24 @@ void Server::run()
 							// read 이벤트 등록
 							changeEvent(change_list, curr_event->ident, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, curr_event->udata);
 						}
-                    }
-                }
-            }
-        }
-    }
+					}
+				}
+			}
+		}
+	}
 }
 
-std::string Server::handleNick(Client& client, std::stringstream& buffer_stream)
+std::string Server::handleNick(Client &client, std::stringstream &buffer_stream)
 {
 	std::string name;
 	std::string cur_nick;
 	std::string response = "";
 
-	//NICK 뒤에 파라미터 안 들어온 경우
+	// NICK 뒤에 파라미터 안 들어온 경우
 	if (!(buffer_stream >> name))
 		response = ERR_NONICKNAMEGIVEN(client.getNickname());
 
-	//닉네임 설정
+	// 닉네임 설정
 	else
 	{
 		// 닉네임 중복 체크
@@ -240,8 +237,7 @@ std::string Server::handleNick(Client& client, std::stringstream& buffer_stream)
 	return response;
 }
 
-
-std::string Server::handleUser(Client& client, std::stringstream& buffer_stream)
+std::string Server::handleUser(Client &client, std::stringstream &buffer_stream)
 {
 	std::string line;
 	std::string name[4];
@@ -282,7 +278,7 @@ std::string Server::handleUser(Client& client, std::stringstream& buffer_stream)
 	return RPL_WELCOME(client.getNickname());
 }
 
-std::string Server::handlePass(Client& client, std::stringstream& buffer_stream)
+std::string Server::handlePass(Client &client, std::stringstream &buffer_stream)
 {
 	// 이미 register된 클라이언트인 경우
 	if (client.getRegister())
@@ -294,7 +290,7 @@ std::string Server::handlePass(Client& client, std::stringstream& buffer_stream)
 	// PASS 뒤에 파라미터 안 들어온 경우
 	if (!(buffer_stream >> line))
 		return ERR_NEEDMOREPARAMS(client.getNickname(), "PASS");
-	
+
 	// password가 다른 경우
 	if (this->password != line)
 		return ERR_PASSWDMISMATCH(client.getNickname());
@@ -305,7 +301,7 @@ std::string Server::handlePass(Client& client, std::stringstream& buffer_stream)
 	return "";
 }
 
-std::string Server::handleQuit(Client& client, std::stringstream& buffer_stream)
+std::string Server::handleQuit(Client &client, std::stringstream &buffer_stream)
 {
 	std::string line;
 	std::string message;
@@ -325,7 +321,7 @@ std::string Server::handleQuit(Client& client, std::stringstream& buffer_stream)
 	return message;
 }
 
-std::string Server::handleWho(Client& client, std::stringstream& buffer_stream)
+std::string Server::handleWho(Client &client, std::stringstream &buffer_stream)
 {
 	std::string name;
 	std::string ch_name;
@@ -340,21 +336,21 @@ std::string Server::handleWho(Client& client, std::stringstream& buffer_stream)
 		// channel name
 		if (name[0] == '#')
 		{
-			for (std::map<std::string, Channel*>::iterator m_it = this->channels.begin(); m_it != this->channels.end(); m_it++)
+			for (std::map<std::string, Channel *>::iterator m_it = this->channels.begin(); m_it != this->channels.end(); m_it++)
 			{
 				ch_name = m_it->second->getName();
 				if (name == ch_name)
 				{
 					std::map<std::string, Client> users = m_it->second->getUsers();
 
-					for (std::map<std::string, Client>::iterator u_it = users.begin(); u_it  != users.end(); u_it++)
+					for (std::map<std::string, Client>::iterator u_it = users.begin(); u_it != users.end(); u_it++)
 					{
 						option = "H";
 						if (m_it->second->isOperator(u_it->second))
 							option += "@";
 
-						reply = RPL_WHOREPLY(client.getNickname(), ch_name, u_it->second.getUsername(), u_it->second.getHostname(), \
-									u_it->second.getServername(), u_it->second.getNickname(), option, u_it->second.getRealname());
+						reply = RPL_WHOREPLY(client.getNickname(), ch_name, u_it->second.getUsername(), u_it->second.getHostname(),
+											 u_it->second.getServername(), u_it->second.getNickname(), option, u_it->second.getRealname());
 						response += makeCRLF(reply);
 					}
 				}
@@ -374,13 +370,13 @@ std::string Server::handleWho(Client& client, std::stringstream& buffer_stream)
 					else
 					{
 						ch_name = u_it->second.getChannels().begin()->first;
-						Channel* ch = this->channels[ch_name];
+						Channel *ch = this->channels[ch_name];
 						if (ch->isOperator(u_it->second))
 							option += "@";
 					}
 
-					reply = RPL_WHOREPLY(client.getNickname(), ch_name, u_it->second.getUsername(), u_it->second.getHostname(), \
-								u_it->second.getServername(), u_it->second.getNickname(), option, u_it->second.getRealname());
+					reply = RPL_WHOREPLY(client.getNickname(), ch_name, u_it->second.getUsername(), u_it->second.getHostname(),
+										 u_it->second.getServername(), u_it->second.getNickname(), option, u_it->second.getRealname());
 					response += makeCRLF(reply);
 				}
 			}
@@ -392,7 +388,7 @@ std::string Server::handleWho(Client& client, std::stringstream& buffer_stream)
 	return response;
 }
 
-std::string Server::handlePingpong(Client& client, std::stringstream& buffer_stream)
+std::string Server::handlePingpong(Client &client, std::stringstream &buffer_stream)
 {
 	std::string response;
 
@@ -406,7 +402,7 @@ std::string Server::handlePingpong(Client& client, std::stringstream& buffer_str
 	return response;
 }
 
-std::string Server::handleJoin(Client& client, std::stringstream& buffer_stream)
+std::string Server::handleJoin(Client &client, std::stringstream &buffer_stream)
 {
 	std::string response;
 
@@ -453,7 +449,7 @@ std::string Server::handleJoin(Client& client, std::stringstream& buffer_stream)
 
 	int i = 0;
 
-	for(std::vector<std::string>::iterator it = channels.begin(); it != channels.end(); it++)
+	for (std::vector<std::string>::iterator it = channels.begin(); it != channels.end(); it++)
 	{
 		if (i < keys.size())
 			key = keys[i];
@@ -465,7 +461,7 @@ std::string Server::handleJoin(Client& client, std::stringstream& buffer_stream)
 	return response;
 }
 
-std::string Server::clientJoinChannel(Client& client, std::string& ch_name, std::string& key)
+std::string Server::clientJoinChannel(Client &client, std::string &ch_name, std::string &key)
 {
 	std::string response;
 
@@ -482,9 +478,7 @@ std::string Server::clientJoinChannel(Client& client, std::string& ch_name, std:
 		response += ERR_CHANNELISFULL(client.getNickname(), ch_name);
 		return response;
 	}
-	if ((!p_channel->getPassword().empty() && key.empty()) 
-		|| (!p_channel->getPassword().empty() && key != p_channel->getPassword())
-			|| (p_channel->getPassword().empty() && !key.empty()))
+	if ((!p_channel->getPassword().empty() && key.empty()) || (!p_channel->getPassword().empty() && key != p_channel->getPassword()) || (p_channel->getPassword().empty() && !key.empty()))
 	{
 		// channel 비밀번호가 존재하는데 request에 비밀번호가 없을 경우
 		// channel 비밀번호가 존재하는데 request 비밀번호와 다를 경우
@@ -499,18 +493,18 @@ std::string Server::clientJoinChannel(Client& client, std::string& ch_name, std:
 		response += ERR_INVITEONLYCHAN(client.getNickname(), ch_name);
 		return response;
 	}
-	
+
 	try
 	{
 		if (client.getNickname() != p_channel->getOwner().getNickname())
 			p_channel->joinClient(client);
 		client.joinChannel(p_channel);
-		
+
 		std::string s_users = "";
 
 		std::map<std::string, Client> users = p_channel->getUsers();
 
-		for(std::map<std::string, Client>::iterator it = users.begin(); it != users.end(); it++)
+		for (std::map<std::string, Client>::iterator it = users.begin(); it != users.end(); it++)
 		{
 			if (it->first == p_channel->getOwner().getNickname())
 				s_users.append("@");
@@ -525,7 +519,7 @@ std::string Server::clientJoinChannel(Client& client, std::string& ch_name, std:
 		response += makeCRLF(RPL_NAMREPLY(client.getNickname(), '=', ch_name, s_users));
 		response += makeCRLF(RPL_ENDOFNAMES(client.getNickname(), ch_name));
 	}
-	catch(const std::exception& e)
+	catch (const std::exception &e)
 	{
 		// channel에서 ban 됐을 경우
 		response += makeCRLF(ERR_BANNEDFROMCHAN(client.getNickname(), ch_name));
@@ -533,48 +527,78 @@ std::string Server::clientJoinChannel(Client& client, std::string& ch_name, std:
 	return response;
 }
 
-std::string Server::handlePrivmsg(Client& client, std::stringstream& buffer_stream)
+std::string Server::handlePrivmsg(Client &client, std::stringstream &buffer_stream)
 {
+	std::string response;
 	std::string target;
 	std::string msg;
-
 
 	buffer_stream >> target;
 	std::getline(buffer_stream, msg);
 	msg.erase(std::remove(msg.begin(), msg.end(), '\r'));
 	msg.erase(std::remove(msg.begin(), msg.end(), '\n'));
+	if (target[0] == '#')
+	{
+		response += msgToServer(client, target, msg);
+	}
+	else
+	{
+		response += msgToUser(client, target, msg);
+	}
+	// error 처리
+	return response;
+}
+
+std::string Server::msgToServer(Client &client, std::string &target, std::string &msg)
+{
+	std::string response;
+
+	if (this->channels.find(target) == this->channels.end())
+	{
+		response += makeCRLF(ERR_NOSUCHCHANNEL(client.getNickname(), target));
+	}
+	else
+	{
+		Channel *channel = this->channels[target];
+		std::map<std::string, Client> users = channel->getUsers();
+
+		if ((users.find(client.getNickname()) == users.end()) && (channel->getModes().find('n') != channel->getModes().end()))
+		{
+			// 해당 사용자가 해당 채널에도 없고 n 옵션이 설정되어 있을 경우
+			response += makeCRLF(ERR_CANNOTSENDTOCHAN(client.getNickname(), target));
+		}
+		else
+			broadcastNotSelf(target, RPL_PRIVMSG(client.getPrefix(), target, msg), client.getSocket());
+	}
+	return response;
+}
+
+std::string Server::msgToUser(Client &client, std::string &target, std::string &msg)
+{
 	for (std::map<int, Client>::iterator c_it = this->clients.begin(); c_it != this->clients.end(); c_it++)
 	{
 		std::string name = c_it->second.getNickname();
 		if (target == name)
 		{
 			directMsg(c_it->second, RPL_PRIVMSG(client.getPrefix(), target, msg));
-			break ;
-		}
-		std::map<std::string, Channel> c_ch = c_it->second.getChannels();
-		std::map<std::string, Channel>::iterator find = c_ch.find(target);
-		if (find != c_ch.end())
-		{
-			broadcastNotSelf(target, RPL_PRIVMSG(client.getPrefix(), target, msg), client.getSocket());
-			break ;
+			return "";
 		}
 	}
-	// error 처리
-	return "";
+	return makeCRLF(ERR_NOSUCHNICK(client.getNickname(), target));
 }
 
-void Server::directMsg(Client& to, const std::string& msg)
+void Server::directMsg(Client &to, const std::string &msg)
 {
 	this->send_data[to.getSocket()] += makeCRLF(msg);
 	changeEvent(change_list, to.getSocket(), EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, NULL);
 }
 
-void Server::broadcast(std::string& channel_name, const std::string& msg)
+void Server::broadcast(std::string &channel_name, const std::string &msg)
 {
 	Channel *channel = this->channels[channel_name];
 
 	std::map<std::string, Client> users = channel->getUsers();
-	for(std::map<std::string, Client>::iterator u_it = users.begin(); u_it != users.end(); u_it++)
+	for (std::map<std::string, Client>::iterator u_it = users.begin(); u_it != users.end(); u_it++)
 	{
 		int c_socket = u_it->second.getSocket();
 		this->send_data[c_socket] += makeCRLF(msg);
@@ -582,12 +606,12 @@ void Server::broadcast(std::string& channel_name, const std::string& msg)
 	}
 }
 
-void Server::broadcastNotSelf(std::string& channel_name, const std::string& msg, int self)
+void Server::broadcastNotSelf(std::string &channel_name, const std::string &msg, int self)
 {
 	Channel *channel = this->channels[channel_name];
 
 	std::map<std::string, Client> users = channel->getUsers();
-	for(std::map<std::string, Client>::iterator u_it = users.begin(); u_it != users.end(); u_it++)
+	for (std::map<std::string, Client>::iterator u_it = users.begin(); u_it != users.end(); u_it++)
 	{
 		int c_socket = u_it->second.getSocket();
 		if (c_socket != self)
@@ -598,19 +622,19 @@ void Server::broadcastNotSelf(std::string& channel_name, const std::string& msg,
 	}
 }
 
-Channel* Server::createChannel(std::string& channel_name, std::string& key, Client& client)
+Channel *Server::createChannel(std::string &channel_name, std::string &key, Client &client)
 {
-	Channel* channel = new Channel(channel_name, key, client);
+	Channel *channel = new Channel(channel_name, key, client);
 	this->channels[channel_name] = channel;
 	return channel;
 }
 
-std::string Server::makeCRLF(const std::string& cmd)
+std::string Server::makeCRLF(const std::string &cmd)
 {
 	return cmd + "\r\n";
 }
 
-std::string Server::handleList(Client& client, std::stringstream& buffer_stream)
+std::string Server::handleList(Client &client, std::stringstream &buffer_stream)
 {
 	std::string response;
 
@@ -621,7 +645,7 @@ std::string Server::handleList(Client& client, std::stringstream& buffer_stream)
 		response += makeCRLF(RPL_LISTSTART(client.getNickname()));
 		if (this->channels.size() > 0)
 		{
-			for (std::map<std::string, Channel*>::iterator it = this->channels.begin(); it != this->channels.end(); it++)
+			for (std::map<std::string, Channel *>::iterator it = this->channels.begin(); it != this->channels.end(); it++)
 			{
 				response += makeCRLF(RPL_LIST(client.getNickname(), it->first, std::to_string(it->second->getUsers().size()), "[" + it->second->getModeString() + "]", it->second->getTopic()));
 			}
@@ -629,15 +653,15 @@ std::string Server::handleList(Client& client, std::stringstream& buffer_stream)
 		response += makeCRLF(RPL_LISTEND(client.getNickname()));
 		return response;
 	}
-		response += makeCRLF(RPL_LISTSTART(client.getNickname()));
-		Channel* ch_po = this->channels[ch_name];
-		if (ch_po)
-			response += makeCRLF(RPL_LIST(client.getNickname(), ch_name, std::to_string(ch_po->getUsers().size()), "[" + ch_po->getModeString() + "]", ch_po->getTopic()));
-		response += makeCRLF(RPL_LISTEND(client.getNickname()));
+	response += makeCRLF(RPL_LISTSTART(client.getNickname()));
+	Channel *ch_po = this->channels[ch_name];
+	if (ch_po)
+		response += makeCRLF(RPL_LIST(client.getNickname(), ch_name, std::to_string(ch_po->getUsers().size()), "[" + ch_po->getModeString() + "]", ch_po->getTopic()));
+	response += makeCRLF(RPL_LISTEND(client.getNickname()));
 	return response;
 }
 
-std::string Server::handleTopic(Client& client, std::stringstream& buffer_stream)
+std::string Server::handleTopic(Client &client, std::stringstream &buffer_stream)
 {
 	std::string response;
 	std::string channel;
@@ -659,7 +683,7 @@ std::string Server::handleTopic(Client& client, std::stringstream& buffer_stream
 	}
 
 	Channel *ch_po = this->channels[channel];
-	
+
 	if (topic.empty())
 	{
 		// topic 없는 경우
@@ -691,7 +715,7 @@ std::string Server::handleTopic(Client& client, std::stringstream& buffer_stream
 	return "";
 }
 
-std::string Server::handlePart(Client& client, std::stringstream& buffer_stream)
+std::string Server::handlePart(Client &client, std::stringstream &buffer_stream)
 {
 	std::string response;
 	std::string channel_line;
@@ -731,7 +755,7 @@ std::string Server::handlePart(Client& client, std::stringstream& buffer_stream)
 	return response;
 }
 
-void Server::clientLeaveChannel(Client& client, Channel *channel)
+void Server::clientLeaveChannel(Client &client, Channel *channel)
 {
 	std::string ch_name = channel->getName();
 	broadcast(ch_name, makeCRLF(RPL_PART(client.getPrefix(), ch_name)));
@@ -745,7 +769,7 @@ void Server::clientLeaveChannel(Client& client, Channel *channel)
 	}
 }
 
-void Server::parseData(Client& client)
+void Server::parseData(Client &client)
 {
 	std::string buffer = client.getBuffer();
 
@@ -789,7 +813,7 @@ void Server::parseData(Client& client)
 				this->send_data[client.getSocket()] += makeCRLF(response);
 				client.clearBuffer();
 				// 비밀번호 틀린 경우 클라이언트 접속 해제
-				return ;
+				return;
 			}
 		}
 		else if (method == "NICK")
@@ -815,7 +839,7 @@ void Server::parseData(Client& client)
 			// create response message
 			response = RPL_QUIT(client.getPrefix(), message);
 
-			//broadcast response() in channel
+			// broadcast response() in channel
 			std::map<std::string, Channel> channels = client.getChannels();
 
 			// 들어가있는 모든 채널에 브로드캐스팅
@@ -875,11 +899,11 @@ void Server::disconnectClient(int client_fd)
 
 	this->clients_by_name.erase(nickname);
 	this->send_data.erase(client_fd);
-    this->clients.erase(client_fd);
+	this->clients.erase(client_fd);
 	std::cout << "close client" << std::endl;
-    close(client_fd);
+	close(client_fd);
 
-	for (std::map<std::string, Channel*>::iterator m_it = this->channels.begin(); m_it != this->channels.end(); m_it++)
+	for (std::map<std::string, Channel *>::iterator m_it = this->channels.begin(); m_it != this->channels.end(); m_it++)
 	{
 		ch_name = m_it->second->getName();
 		std::cout << "channel :" << ch_name << std::endl;
@@ -907,7 +931,7 @@ std::string Server::getPassword() const
 	return this->password;
 }
 
-std::map<std::string, Channel*> Server::getChannels() const
+std::map<std::string, Channel *> Server::getChannels() const
 {
 	return this->channels;
 }
