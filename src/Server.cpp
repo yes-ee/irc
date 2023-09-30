@@ -77,13 +77,6 @@ void Server::run()
 			throw keventError();
 		}
 
-		// for (std::set<int>::iterator m_it = close_client.begin(); m_it != close_client.end(); m_it++)
-		// {
-		// 	disconnectClient(*m_it);
-		// }
-
-		// close_client.clear();
-
 		// 큐에 다 담았으니 change_list 초기화
 		change_list.clear();
 
@@ -138,28 +131,32 @@ void Server::run()
 					int n = recv(curr_event->ident, buf, sizeof(buf), 0);
 
 					// 에러 발생 시 클라이언트 연결 끊기
-					if (n <= 0)
-					{
-						if (n < 0)
-							std::cerr << "client read error!" << std::endl;
-						disconnectClient(curr_event->ident);
-					}
-					else
-					{
+                    if (n <= 0)
+                    {
+                        if (n < 0)
+                            std::cerr << "client read error!" << std::endl;
+                        disconnectClient(curr_event->ident);
+                    }
+                    else
+                    {
 						// if (clients[curr_event->ident].getClose())
 						// {
 						// 	std::cout << "end : not read" << std::endl;
 						// 	continue;
 						// }
-						buf[n] = '\0';
-						clients[curr_event->ident].addBuffer(buf);
-						std::cout << "received data from " << curr_event->ident << ": " << clients[curr_event->ident].getBuffer() << std::endl;
+                        buf[n] = '\0';
+                        clients[curr_event->ident].addBuffer(buf);
+                        std::cout << "received data from " << curr_event->ident << ": " << clients[curr_event->ident].getBuffer() << std::endl;
 						// 읽은 데이터 파싱해서 write할 데이터 클라이언트 배열의 버퍼에 넣기
 						parseData(clients[curr_event->ident]);
-						// read 이벤트 리턴 x -> 발생해도 큐에서 처리 x
-						changeEvent(change_list, curr_event->ident, EVFILT_READ, EV_DISABLE, 0, 0, curr_event->udata);
-						// write 이벤트 등록
-						changeEvent(change_list, curr_event->ident, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, curr_event->udata);
+						// 버퍼가 비어있지 않은 경우에만 write 이벤트로 전환
+						if (!send_data[curr_event->ident].empty())
+						{
+							// read 이벤트 리턴 x -> 발생해도 큐에서 처리 x
+							changeEvent(change_list, curr_event->ident, EVFILT_READ, EV_DISABLE, 0, 0, curr_event->udata);
+							// write 이벤트 등록
+							changeEvent(change_list, curr_event->ident, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, curr_event->udata);
+						}
 					}
 				}
 			}
@@ -284,16 +281,24 @@ std::string Server::handlePass(Client &client, std::stringstream &buffer_stream)
 	if (client.getRegister())
 		return ERR_ALREADYREGISTRED(client.getNickname());
 
-	std::string line;
 	int cnt = 0;
+	std::string line;
+
+	buffer_stream >> line;
 
 	// PASS 뒤에 파라미터 안 들어온 경우
-	if (!(buffer_stream >> line))
+	if (line.empty())
+	{
+		client.setClose(true);
 		return ERR_NEEDMOREPARAMS(client.getNickname(), "PASS");
+	}
 
 	// password가 다른 경우
 	if (this->password != line)
+	{
+		client.setClose(true);
 		return ERR_PASSWDMISMATCH(client.getNickname());
+	}
 
 	// 성공
 	client.setRegister(true);
@@ -772,11 +777,15 @@ void Server::clientLeaveChannel(Client &client, Channel *channel)
 void Server::parseData(Client &client)
 {
 	std::string buffer = client.getBuffer();
+	std::cout << buffer << std::endl;
 
 	size_t pos = 0;
 
 	while (1)
 	{
+		if (client.getClose())
+			break;
+		
 		std::string line;
 
 		if (buffer.find("\r\n") != std::string::npos)
@@ -795,26 +804,51 @@ void Server::parseData(Client &client)
 		}
 
 		std::string method;
+		std::string pre_method;
 		std::string message;
 		std::string response;
 		std::stringstream buffer_stream(line);
+		std::stringstream pre_stream;
 
 		buffer_stream >> method;
+
+		if (!client.getRegister())
+		{
+			pre_stream.str(client.getPreCmd());
+			pre_stream >> pre_method;
+		}
 
 		if (method != "CAP" && !client.getRegister())
 		{
 			if (method == "PASS")
 			{
-				response = handlePass(client, buffer_stream);
+				// 다음 버퍼까지 확인해서 마지막 pass일 때 인증 과정 수행
+				// method 이후부터 저장되어 있는 pre_stream 생성
+				client.setPreCmd(line);
+				this->send_data[client.getSocket()] += makeCRLF(response);
+				buffer = buffer.substr(pos + 2);
+				continue;
+			}
+			// 마지막 pass일 때 인증 과정 수행
+			else if (pre_method == "PASS")
+			{
+				std::string tmp("");
+				client.setPreCmd(tmp);
+				buffer.insert(0, makeCRLF(line));
+				response = handlePass(client, pre_stream);
 			}
 			else
 			{
 				response = ERR_PASSWDMISMATCH(client.getNickname());
-				this->send_data[client.getSocket()] += makeCRLF(response);
+				this->send_data[client.getSocket()] = makeCRLF(response);
 				client.clearBuffer();
-				// 비밀번호 틀린 경우 클라이언트 접속 해제
+				client.setClose(true);
 				return;
 			}
+		}
+		else if (method == "PASS")
+		{
+			response = handlePass(client, buffer_stream);
 		}
 		else if (method == "NICK")
 		{

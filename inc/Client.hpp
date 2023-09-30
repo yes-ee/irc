@@ -15,6 +15,7 @@ class Client {
 		bool reg;
 		bool close;
 		std::string buffer;
+		std::string pre_cmd;
 		std::string nickname;
 		std::string username;
 		std::string hostname;
@@ -46,6 +47,8 @@ class Client {
 		void addBuffer(std::string data);
 		std::string getBuffer() const;
 		void clearBuffer();
+		void setPreCmd(std::string& pre_cmd);
+		std::string getPreCmd() const;
 		std::string getPrefix() const;
 		void joinChannel(const Channel* channel);
 		std::map<std::string, Channel> getChannels() const;
