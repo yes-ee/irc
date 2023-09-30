@@ -14,6 +14,7 @@ Client::~Client()
 Client::Client(int socket) : socket(socket)
 {
 	this->buffer = "";
+	this->pre_cmd = "";
 	this->reg = false;
 	this->nickname = "client" + std::to_string(socket);
 }
@@ -116,6 +117,16 @@ std::string Client::getBuffer() const
 void Client::clearBuffer()
 {
 	this->buffer.clear();
+}
+
+void Client::setPreCmd(std::string& pre_cmd)
+{
+	this->pre_cmd = pre_cmd;
+}
+
+std::string Client::getPreCmd() const
+{
+	return this->pre_cmd;
 }
 
 bool operator==(const Client& lhs, const Client& rhs)
