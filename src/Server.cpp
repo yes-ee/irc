@@ -783,7 +783,7 @@ std::string Server::handleKick(Client &client, std::stringstream &buffer_stream)
 			response += makeCRLF(ERR_NOSUCHCHANNEL(client.getNickname(), ch_name));
 			continue;
 		}
-		if (this->isClient(nickname))
+		if (!this->isClient(nickname))
 		{
 			// user가 존재하지 않을 경우
 			response += makeCRLF(ERR_NOSUCHNICK(client.getNickname(), nickname));
