@@ -21,7 +21,6 @@ class Channel {
 	private:
 		std::string name;
 		std::string password;
-		bool invite_mode;
 		long long user_limit;
 		time_t create_time;
 		Client owner;
@@ -53,7 +52,7 @@ class Channel {
 		long long getCreateTime() const;
 		void setOwner(Client& client);
 		Client getOwner() const;
-		void joinClient(const Client& client);
+		void joinClient(Client& client, int auth);
 		void addInvited(const Client& client);
 		bool isInvite(const Client& client);
 		void addBan(const Client& client);

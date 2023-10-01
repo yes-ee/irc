@@ -43,7 +43,6 @@ class Client {
 		std::string getServername() const;
 		void setRealname(std::string& realname);
 		std::string getRealname() const;
-		void joinRequest(Channel& channel);
 		void addBuffer(std::string data);
 		std::string getBuffer() const;
 		void clearBuffer();

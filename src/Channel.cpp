@@ -10,7 +10,7 @@ Channel::~Channel()
 
 }
 
-Channel::Channel(std::string& name, std::string& key, Client& client) : name(name), owner(client), user_limit(3), invite_mode(false)
+Channel::Channel(std::string& name, std::string& key, Client& client) : name(name), owner(client), user_limit(3)
 {
 	std::string nick = client.getNickname();
 
@@ -59,13 +59,6 @@ std::string Channel::getTopic() const
 	return this->topic;
 }
 
-
-// void Channel::setInviteMode(bool flag)
-// {
-// 	this->invite_mode = flag;
-	
-// }
-
 bool Channel::getInviteMode() const
 {
 	if (this->modes.find('i') != this->modes.end())
@@ -106,14 +99,15 @@ bool Channel::isOperator(const Client& client)
 	return false;
 }
 
-void Channel::joinClient(const Client& client)
+void Channel::joinClient(Client& client, int auth)
 {
 	if (checkBan(client))
 		throw banError();
-
+	if (auth == OWNER)
+		this->setOwner(client);
 	std::string name = client.getNickname();
 	this->users[name] = client;
-	this->auth[name] = COMMON;
+	this->auth[name] = auth;
 }
 
 void Channel::addBan(const Client& client)
