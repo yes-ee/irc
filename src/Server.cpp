@@ -464,7 +464,7 @@ std::string Server::handleJoin(Client &client, std::stringstream &buffer_stream)
 		i++;
 	}
 	return response;
-}
+} 
 
 std::string Server::clientJoinChannel(Client &client, std::string &ch_name, std::string &key)
 {
@@ -492,9 +492,8 @@ std::string Server::clientJoinChannel(Client &client, std::string &ch_name, std:
 
 		return response;
 	}
-	if (p_channel->getInviteMode())
+	if (p_channel->getInviteMode() && !p_channel->isInvite(client))
 	{
-		// invite only 채널일 경우
 		response += ERR_INVITEONLYCHAN(client.getNickname(), ch_name);
 		return response;
 	}
@@ -804,7 +803,8 @@ std::string Server::handleKick(Client &client, std::stringstream &buffer_stream)
 		if (!channel->isOperator(client))
 		{
 			bool op = false;
-			for(std::map<std::string, int>::iterator auth_it = channel->auth.begin(); auth_it != channel->auth.end(); auth_it++)
+			std::map<std::string, int> auths = channel->getAuth();
+			for(std::map<std::string, int>::iterator auth_it = auths.begin(); auth_it != auths.end(); auth_it++)
 			{
 				if (auth_it->second <= 2)
 				{
@@ -885,6 +885,7 @@ std::string Server::handleInvite(Client &client, std::stringstream &buffer_strea
 		return makeCRLF(ERR_CHANOPRIVSNEEDED(client.getNickname(), ch_name));
 	}
 	Client to = this->clients_by_name[nickname];
+	channel->addInvited(to);
 	response = makeCRLF(RPL_INVITING(client.getNickname(), nickname, ch_name));
 	directMsg(to, RPL_INVITE(client.getPrefix(), nickname, ch_name));
 	return response;
@@ -902,6 +903,272 @@ void Server::clientLeaveChannel(Client &client, Channel *channel)
 		delete channel;
 		channel = 0;
 	}
+}
+
+std::string Server::handleMode(Client &client, std::stringstream &buffer_stream)
+{
+	std::string response;
+	std::string ch_name;
+	std::string modes;
+	std::string param;
+
+	buffer_stream >> ch_name;
+	buffer_stream >> modes;
+
+	// 채널명 잘못 들어온 경우(유저 찾는 경우) 401 에러
+	if (ch_name[0] != '#')
+	{
+		//response = ERR_NOSUCHNICK(client.getNickname(), ch_name);
+		return response;
+	}
+
+	// 존재하지 않는 채널인 경우 403 에러
+	if (channels.find(ch_name) == channels.end())
+	{
+		response = ERR_NOSUCHCHANNEL(client.getNickname(), ch_name);
+		return response;
+	}
+
+	Channel* p_channel = channels[ch_name];
+
+	// 채널명만 들어온 경우 해당 채널의 모드 반환
+	if (modes.empty())
+	{
+		response = getChannelModeResponse(client, p_channel);
+		return response;
+	}
+
+	int flag = 1;
+	int pre_flag = 0;
+	std::string ch_modes = "";
+	std::string ch_params = "";
+
+	// i t k l    o
+	for (int i = 0; i < modes.length(); i++)
+	{
+		if (modes[i] == '+')
+			flag = 1;
+		else if (modes[i] == '-')
+			flag = -1;
+		else if (modes[i] == 'i' || modes[i] == 't')
+		{
+			//op error
+			if (!p_channel->isOperator(client))
+				response += makeCRLF(ERR_CHANOPRIVSNEEDEDMODE(client.getNickname(), ch_name, modes[i]));
+			else if (flag == 1)
+			{
+				if (p_channel->findMode(modes[i]))
+					continue;
+				
+				p_channel->addMode(modes[i]);
+
+				if (pre_flag == -1 || pre_flag == 0)
+					ch_modes += "+";
+				ch_modes += modes[i];
+				pre_flag = 1;
+			}
+			else if (flag == -1)
+			{
+				if (!p_channel->findMode(modes[i]))
+					continue;
+				
+				p_channel->eraseMode(modes[i]);
+
+				if (pre_flag == 1 || pre_flag == 0)
+					ch_modes += "-";
+				ch_modes += modes[i];
+				pre_flag = -1;
+			}
+		}
+		else if (modes[i] == 'k')
+		{
+			buffer_stream >> param;
+
+			//param error
+			if (param.empty())
+				response += makeCRLF(ERR_NOOPPARAM(client.getNickname(), ch_name, modes[i], "key", "key"));
+			// op error
+			else if (!p_channel->isOperator(client))
+				response += makeCRLF(ERR_CHANOPRIVSNEEDEDMODE(client.getNickname(), ch_name, modes[i]));
+			// pwd error
+			else if (param.length() > 20)
+				response += makeCRLF(ERR_LONGPWD(client.getNickname(), ch_name));
+			// +k
+			else if (flag == 1)
+			{
+				if (p_channel->findMode(modes[i]))
+					continue;
+				
+				p_channel->setPassword(param);
+				p_channel->addMode(modes[i]);
+				if (pre_flag == -1 || pre_flag == 0)
+					ch_modes += "+";
+				ch_modes += modes[i];
+				ch_params += " " + param;
+				pre_flag = 1;
+			}
+			// -k
+			else if (flag == -1)
+			{
+				if (!p_channel->findMode(modes[i]))
+					continue;
+				if (param != p_channel->getPassword())
+					continue;
+				std::string pw = "";
+				p_channel->setPassword(pw);
+				p_channel->eraseMode(modes[i]);
+				if (pre_flag == 1 || pre_flag == 0)
+					ch_modes += "-";
+				ch_modes += modes[i];
+				ch_params += " " + param;
+				pre_flag = -1;
+			}
+		}
+		else if (modes[i] == 'l')
+		{
+			buffer_stream >> param;
+
+			// op error
+			if (!p_channel->isOperator(client))
+				response += makeCRLF(ERR_CHANOPRIVSNEEDEDMODE(client.getNickname(), ch_name, modes[i]));
+			// -l
+			else if (flag == -1)
+			{
+				if (!p_channel->findMode(modes[i]))
+					continue;
+
+				p_channel->setUserLimit(999999999);
+				p_channel->eraseMode(modes[i]);
+				if (pre_flag == 1 || pre_flag == 0)
+					ch_modes += "-";
+				ch_modes += modes[i];
+				pre_flag = -1;
+			}
+			// +l
+			else if (flag == 1)
+			{
+				//param error
+				if (param.empty())
+					response += makeCRLF(ERR_NOOPPARAM(client.getNickname(), ch_name, modes[i], "limit", "limit"));
+
+				if (param.length() > 18)
+					param = "0";
+
+				long long user_limit = atoll(param.c_str());
+
+				if (p_channel->findMode(modes[i]) && user_limit == p_channel->getUserLimit())
+					continue;
+
+				p_channel->setUserLimit(user_limit);
+				p_channel->addMode(modes[i]);
+				if (pre_flag == -1 || pre_flag == 0)
+					ch_modes += "+";
+				ch_modes += modes[i];
+				ch_params += " " + param;
+				pre_flag = 1;
+			}
+
+		}
+		else if (modes[i] == 'o')
+		{
+			buffer_stream >> param;
+
+			// param error
+			if (param.empty())
+				response += makeCRLF(ERR_NOOPPARAM(client.getNickname(), ch_name, modes[i], "op", "nick"));
+			// op error
+			else if (!p_channel->isOperator(client))
+				response += makeCRLF(ERR_CHANOPRIVSNEEDEDMODE(client.getNickname(), ch_name, modes[i]));
+			// no such nick error
+			else if (p_channel->getUsers().find(client.getNickname()) == p_channel->getUsers().end())
+				response += makeCRLF(ERR_NOSUCHNICK(client.getNickname(), param));
+			// +o
+			else if (flag == 1)
+			{
+				if (p_channel->isOperator(client))
+					continue;
+
+				p_channel->setOperator(client);
+				if (pre_flag == -1 || pre_flag == 0)
+					ch_modes += "+";
+				ch_modes += modes[i];
+				ch_params += " " + param;
+				pre_flag = 1;
+			}
+			// -o
+			else if (flag == -1)
+			{
+				if (!p_channel->isOperator(client))
+					continue;
+
+				p_channel->changeAuth(COMMON, client);
+				if (pre_flag == 1 || pre_flag == 0)
+					ch_modes += "-";
+				ch_modes += modes[i];
+				ch_params += " " + param;
+				pre_flag = -1;
+			}
+		}
+		else if (modes[i] == 'p' || modes[i] == 's' || modes[i] == 'n' || modes[i] == 'b' || modes[i] == 'v' || modes[i] == 'm')
+			continue;
+		else
+			response += makeCRLF(ERR_UNKNOWNMODE(client.getNickname(), modes[i]));
+	}
+
+	std::string::size_type tmp = ch_params.rfind(" ");
+	ch_params.insert(tmp + 1, ":");
+
+	response += makeCRLF(RPL_MODE(client.getPrefix(), ch_name, ch_modes, ch_params));
+
+	return response;
+}
+
+std::string Server::getChannelModeResponse(Client& client, Channel* p_channel)
+{
+	std::string reply;
+	std::string response;
+	std::string ch_modes = "";
+	std::string ch_params = "";
+	std::string ch_name = p_channel->getName();
+
+	int cnt = 0;
+	int key = 0;
+
+	if (p_channel->getModes().find('k') != p_channel->getModes().end())
+		key++;
+	if (p_channel->getModes().find('l') != p_channel->getModes().end())
+		key++;
+	std::set<char> modes = p_channel->getModes();
+	for (std::set<char>::iterator m_it = modes.begin(); m_it != modes.end(); m_it++)
+	{
+		if (key == 0)
+			ch_modes = ":+";
+
+		if (*m_it == 'k')
+		{
+			if (cnt == key - 1)
+				ch_params += ": ";
+			else
+				ch_params += " ";
+			ch_params += " " + p_channel->getPassword();
+			cnt++;
+		}
+		else if (*m_it == 'l')
+		{
+			if (cnt == key - 1)
+				ch_params += ": ";
+			else
+				ch_params += " ";
+			ch_params += " " + std::to_string(p_channel->getUserLimit());
+			cnt++;
+		}
+
+		ch_modes += *m_it;
+	}
+	response = makeCRLF(RPL_CHANNELMODEIS(client.getNickname(), ch_name, ch_modes, ch_params));
+	response += makeCRLF(RPL_CHANNELCREATETIME(client.getNickname(), ch_name, std::to_string(channels[ch_name]->getCreateTime())));
+
+	return response;
 }
 
 void Server::parseData(Client &client)
@@ -1047,6 +1314,10 @@ void Server::parseData(Client &client)
 		else if (method == "INVITE")
 		{
 			response = handleInvite(client, buffer_stream);
+		}
+		else if (method == "MODE")
+		{
+			response = handleMode(client, buffer_stream);
 		}
 		this->send_data[client.getSocket()] += makeCRLF(response);
 		std::cout << "send data : " << response << std::endl;

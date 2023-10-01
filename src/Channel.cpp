@@ -23,6 +23,7 @@ Channel::Channel(std::string& name, std::string& key, Client& client) : name(nam
 	this->auth[nick] = OWNER;
 	this->modes.insert('n');
 	this->modes.insert('t');
+	this->create_time = time(NULL);
 	std::cout << "channel name is " << name << std::endl; 
 }
 
@@ -59,23 +60,26 @@ std::string Channel::getTopic() const
 }
 
 
-void Channel::setInviteMode(bool flag)
-{
-	this->invite_mode = flag;
-}
+// void Channel::setInviteMode(bool flag)
+// {
+// 	this->invite_mode = flag;
+	
+// }
 
 bool Channel::getInviteMode() const
 {
-	return this->invite_mode;
+	if (this->modes.find('i') != this->modes.end())
+		return true;
+	return false;
 }
 
 
-void Channel::setUserLimit(int limit)
+void Channel::setUserLimit(long long limit)
 {
 	this->user_limit = limit;
 }
 
-int Channel::getUserLimit() const
+long long Channel::getUserLimit() const
 {
 	return this->user_limit;
 }
@@ -138,56 +142,56 @@ std::map<std::string, Client> Channel::getUsers() const
 	return this->users;
 }
 
-bool Channel::validateCommand(std::vector<std::string>& mode_cmd, std::string& command)
-{
-	if (command.length() < 2)
-		return false;
-	std::string flag(1,command[0]);
-	std::string mode(1,command[1]);
-	if (flag != "+" && flag != "-")
-		return false;
-	std::stringstream ss(command);
+// bool Channel::validateCommand(std::vector<std::string>& mode_cmd, std::string& command)
+// {
+// 	if (command.length() < 2)
+// 		return false;
+// 	std::string flag(1,command[0]);
+// 	std::string mode(1,command[1]);
+// 	if (flag != "+" && flag != "-")
+// 		return false;
+// 	std::stringstream ss(command);
 
-	std::string word;
-	std::vector<std::string> words;
-	while (getline(ss, word, ' ')){
-        words.push_back(word);
-    }
-	if (flag == "-" && words.size() > 1)
-		return false;
-	if (words.size() > 2)
-		return false;
-	if (mode != "i" && mode != "t" && mode != "k" && mode != "o")
-		return false;
-	if (mode == "l" || mode == "t")
-	{
-		if (words[1].length() > 9)
-			return false;
-		if (mode == "l")
-		{
-			for (int i = 0; i < words[1].length(); i++)
-			{
-				if (!std::isdigit(words[1][i]))
-					return false;
-			}
-		}
-	}
-	mode_cmd.push_back(flag);
-	mode_cmd.push_back(mode);
-	if (words.size() == 2)
-		mode_cmd.push_back(words[1]);
-	return true;
-}
+// 	std::string word;
+// 	std::vector<std::string> words;
+// 	while (getline(ss, word, ' ')){
+//         words.push_back(word);
+//     }
+// 	if (flag == "-" && words.size() > 1)
+// 		return false;
+// 	if (words.size() > 2)
+// 		return false;
+// 	if (mode != "i" && mode != "t" && mode != "k" && mode != "o")
+// 		return false;
+// 	if (mode == "l" || mode == "t")
+// 	{
+// 		if (words[1].length() > 9)
+// 			return false;
+// 		if (mode == "l")
+// 		{
+// 			for (int i = 0; i < words[1].length(); i++)
+// 			{
+// 				if (!std::isdigit(words[1][i]))
+// 					return false;
+// 			}
+// 		}
+// 	}
+// 	mode_cmd.push_back(flag);
+// 	mode_cmd.push_back(mode);
+// 	if (words.size() == 2)
+// 		mode_cmd.push_back(words[1]);
+// 	return true;
+// }
 
-void Channel::setMode(std::string& command)
-{
-	std::vector<std::string> mode_cmd;
+// void Channel::setMode(std::string& command)
+// {
+// 	std::vector<std::string> mode_cmd;
 
-	if (!validateCommand(mode_cmd, command))
-		return ;
+// 	if (!validateCommand(mode_cmd, command))
+// 		return ;
 	
-	// this->modes.insert(mode);
-}
+// 	// this->modes.insert(mode);
+// }
 
 std::set<char> Channel::getModes() const
 {
@@ -203,6 +207,23 @@ std::string Channel::getModeString() const
 		mode += *it;
 	}
 	return mode;
+}
+
+bool Channel::findMode(char mode)
+{
+	if(this->modes.find(mode) != this->modes.end())
+		return true;
+	return false;
+}
+
+void Channel::addMode(char mode)
+{
+	this->modes.insert(mode);
+}
+
+void Channel::eraseMode(char mode)
+{
+	this->modes.erase(mode);
 }
 
 void Channel::deleteClient(std::string nickname)
@@ -221,12 +242,49 @@ void Channel::setTopicTime()
 	this->topic_set_time = std::to_string(timer);
 }
 
-std::string Channel::getTopicTime()
+std::string Channel::getTopicTime() const
 {
 	return this->topic_set_time;
 }
 
-std::string Channel::getTopicUser()
+std::string Channel::getTopicUser() const
 {
 	return this->topic_set_user;
+}
+
+void Channel::setCreateTime(long long time)
+{
+	this->create_time = time;
+}
+long long Channel::getCreateTime() const
+{
+	return this->create_time;
+}
+
+void Channel::changeAuth(int auth, const Client& client)
+{
+	this->auth[client.getNickname()] = auth;
+}
+
+std::map<std::string, int> Channel::getAuth() const
+{
+	return this->auth;
+}
+
+void Channel::addInvited(const Client& client)
+{
+	this->invited.push_back(client);
+}
+
+bool Channel::isInvite(const Client& client)
+{
+	for (std::vector<Client>::iterator i_it = this->invited.begin(); i_it != this->invited.end(); i_it++)
+	{
+		if (i_it->getNickname() == client.getNickname())
+		{
+			this->invited.erase(i_it);
+			return true;
+		}
+	}
+	return false;
 }
