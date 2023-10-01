@@ -505,7 +505,8 @@ std::string Server::clientJoinChannel(Client &client, std::string &ch_name, std:
 		client.joinChannel(p_channel);
 		for (std::map<std::string, Client>::iterator it = users.begin(); it != users.end(); it++)
 		{
-			if (it->first == p_channel->getOwner().getNickname())
+			std::cout << it->first << " : " << p_channel->isOperator(it->second) << std::endl;
+			if (p_channel->isOperator(it->second))
 			{
 				s_users.append("@");
 			}
@@ -1359,7 +1360,7 @@ void Server::changeChannelNick(Client& client, const std::string& before, const 
 	for (std::map<std::string, Channel>::iterator m_it = channels.begin(); m_it != channels.end(); m_it++)
 	{
 		ch_name = m_it->second.getName();
-		auth = m_it->second.getAuth()[before];
+		auth = this->channels[ch_name]->getAuth()[before];
 		this->channels[ch_name]->deleteClient(before);
 		this->channels[ch_name]->joinClient(client, auth);
 
