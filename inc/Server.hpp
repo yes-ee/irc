@@ -39,10 +39,14 @@
 #define ERR_NOSUCHCHANNEL(user, channel) "403 " + user + " " + channel + " :No such channel"
 #define ERR_CHANOPRIVSNEEDED(user, channel) "482 " + user + " " + channel + " :You must be a channel operator"
 #define ERR_CHANOPRIVSNEEDED2(user, channel) "482 " + user + " " + channel + " :You must be a channel half-operator"
+#define ERR_CHANOPRIVSNEEDEDMODE(user, channel, mode) "482 " + user + " " + channel + " :You must have channel op access or above to set channel mode " + mode
 #define ERR_USERNOTINCHANNEL(user, nick, channel) "441 " + user + " " + nick + " " + channel + " :They are not on that channel"
 #define ERR_NOTONCHANNEL(user, channel) "442 " + user + " " + channel + " :You're not on that channel!"
 #define ERR_CANNOTSENDTOCHAN(user, channel) "404 " + user + " " + channel + " :Cannot send to channel (no external messages)"
 #define ERR_NOSUCHNICK(user, nick) "401 " + user + " " + nick + " :No such nick"
+#define ERR_UNKNOWNMODE(user, mode) "472 " + user + " " + mode + " :is unknown mode char to me"
+#define ERR_NOOPPARAM(user, channel, mode, modename, param) "696 " + user + " " + channel + " " + mode + " * :You must specify a parameter for the " + modename + " mode. Syntax: <" + param + ">." 
+#define ERR_LONGPWD(user, channel) ":" + user + " " + channel + " :Too long password"
 #define ERR_USERONCHANNEL(user, nick, channel) "443 " + user + " " + nick + " " + channel + " :is already on channel"
 
 // numeric
@@ -59,6 +63,8 @@
 #define RPL_LISTEND(user) "323 " + user + ":End of /LIST"
 #define RPL_NOTOPIC(user, channel) "331 " + user + " " + channel + " :No topic is set"
 #define RPL_INVITING(user, nick, channel) "341 " + user + " " + nick + " :" + channel
+#define RPL_CHANNELMODEIS(user, channel, modes, params) "324 " + user + " " + channel + " " + modes + params
+#define RPL_CHANNELCREATETIME(user, channel, date) "329 " + user + " " + channel + " :" + date
 
 // command
 #define RPL_QUIT(user, message) ":" + user + " QUIT :Quit: " + message
@@ -69,6 +75,7 @@
 #define RPL_PART(user, channel) ":" + user + " PART " + " :" + channel
 #define RPL_KICK(user, channel, nick) ":" + user + " KICK " + channel + " " + nick + " :"
 #define RPL_INVITE(user, nick, channel) ":" + user + " INVITE " + nick + " :" + channel
+#define RPL_MODE(user, channel, modes, params) ":" + user + " MODE " + channel + " " + modes + params
 
 class Server
 {
@@ -122,6 +129,7 @@ public:
 	std::string handlePart(Client &client, std::stringstream &buffer_stream);
 	std::string handleKick(Client &client, std::stringstream &buffer_stream);
 	std::string handleInvite(Client &client, std::stringstream &buffer_stream);
+	std::string handleMode(Client &client, std::stringstream &buffer_stream);
 	Channel *createChannel(std::string &channel_name, std::string &key, Client &client);
 	std::string msgToServer(Client &client, std::string &target, std::string &msg);
 	std::string msgToUser(Client &client, std::string &target, std::string &msg);
@@ -131,6 +139,7 @@ public:
 	void clientKickedChannel(Client &from, std::string& to_nick, Channel *channel);
 	void clientLeaveChannel(Client &client, Channel *channel);
 	std::string clientJoinChannel(Client &client, std::string &ch_name, std::string &key);
+	std::string getChannelModeResponse(Client& client, Channel* p_channel);
 
 	class bindError : public std::exception
 	{
