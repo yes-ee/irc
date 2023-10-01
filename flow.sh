@@ -12,6 +12,8 @@ tcpflow -i lo port 6667 -c
 
 # in other tab
 # connect to ircserv
-irssi -c 10.12.4.3 -p 1012 -w 1234 -n yeselee
+
+irssi -c 10.12.4.1 -p 8080 -w 1234 -n subcho
 # connect to inspircd
-irssi -c 127.0.0.1 -p 6667 -n subcho
+irssi -c 127.0.0.1 -p 6667 -n yeselee
+

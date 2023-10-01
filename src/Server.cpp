@@ -760,6 +760,48 @@ std::string Server::handlePart(Client &client, std::stringstream &buffer_stream)
 	return response;
 }
 
+std::string Server::handleInvite(Client &client, std::stringstream &buffer_stream)
+{
+	std::string response;
+	std::string nickname;
+	std::string ch_name;
+
+	buffer_stream >> nickname;
+	buffer_stream >> ch_name;
+	
+	if (this->channels.find(ch_name) == this->channels.end())
+	{
+		// channel이 존재하지 않을 경우
+		return makeCRLF(ERR_NOSUCHCHANNEL(client.getNickname(), ch_name));
+	}
+	if (this->clients_by_name.find(nickname) == this->clients_by_name.end())
+	{
+		// user가 존재하지 않을 경우
+		return makeCRLF(ERR_NOSUCHNICK(client.getNickname(), nickname));
+	}
+	Channel *channel = this->channels[ch_name];
+	std::map<std::string, Client> users = channel->getUsers();
+	if (users.find(client.getNickname()) == users.end())
+	{
+		//채널에 없는 유저가 보냈을 경우
+		return makeCRLF(ERR_NOTONCHANNEL(client.getNickname(), ch_name));
+	}
+	if (users.find(nickname) != users.end())
+	{
+		// 이미 채널에 있는 유저일 경우
+		return makeCRLF(ERR_USERONCHANNEL(client.getNickname(), nickname, ch_name));
+	}
+	if (!channel->isOperator(client))
+	{
+		// operator 아닐 경우
+		return makeCRLF(ERR_CHANOPRIVSNEEDED(client.getNickname(), ch_name));
+	}
+	Client to = this->clients_by_name[nickname];
+	response = makeCRLF(RPL_INVITING(client.getNickname(), nickname, ch_name));
+	directMsg(to, RPL_INVITE(client.getPrefix(), nickname, ch_name));
+	return response;
+}
+
 void Server::clientLeaveChannel(Client &client, Channel *channel)
 {
 	std::string ch_name = channel->getName();
@@ -909,6 +951,10 @@ void Server::parseData(Client &client)
 		else if (method == "PART")
 		{
 			response = handlePart(client, buffer_stream);
+		}
+		else if (method == "INVITE")
+		{
+			response = handleInvite(client, buffer_stream);
 		}
 		this->send_data[client.getSocket()] += makeCRLF(response);
 		std::cout << "send data : " << response << std::endl;
