@@ -37,12 +37,13 @@
 #define ERR_QUIT(user, message) "ERROR :Closing link: (" + user + ") [Quit: " + message + "]"
 #define ERR_NOSUCHSERVER(user, server) "402 " + user + " " + server + " :No such server"
 #define ERR_NOSUCHCHANNEL(user, channel) "403 " + user + " " + channel + " :No such channel"
-#define ERR_NOTONCHANNEL(user, channel) "442 " + user + " " + channel + " :You're not on that channel"
-#define ERR_CHANOPRIVSNEEDED(user, channel) "482 " + user + " " + channel + " :You're not channel operator"
+#define ERR_CHANOPRIVSNEEDED(user, channel) "482 " + user + " " + channel + " :You must be a channel operator"
 #define ERR_CHANOPRIVSNEEDED2(user, channel) "482 " + user + " " + channel + " :You must be a channel half-operator"
+#define ERR_USERNOTINCHANNEL(user, nick, channel) "441 " + user + " " + nick + " " + channel + " :They are not on that channel"
+#define ERR_NOTONCHANNEL(user, channel) "442 " + user + " " + channel + " :You're not on that channel!"
 #define ERR_CANNOTSENDTOCHAN(user, channel) "404 " + user + " " + channel + " :Cannot send to channel (no external messages)"
 #define ERR_NOSUCHNICK(user, nick) "401 " + user + " " + nick + " :No such nick"
-#define ERR_USERNOTINCHANNEL(user, nick, channel) "441 " + user + " " + nick + " " + channel + " :They are not on that channel"
+#define ERR_USERONCHANNEL(user, nick, channel) "443 " + user + " " + nick + " " + channel + " :is already on channel"
 
 // numeric
 #define RPL_WELCOME(user) "001 " + user + " :Welcome to the happyirc network " + user + "!"
@@ -57,6 +58,7 @@
 #define RPL_LIST(user, channel, visible, mode, topic) "322 " + user + " " + channel + " " + visible + " :" + mode + " " + topic
 #define RPL_LISTEND(user) "323 " + user + ":End of /LIST"
 #define RPL_NOTOPIC(user, channel) "331 " + user + " " + channel + " :No topic is set"
+#define RPL_INVITING(user, nick, channel) "341 " + user + " " + nick + " :" + channel
 
 // command
 #define RPL_QUIT(user, message) ":" + user + " QUIT :Quit: " + message
@@ -66,6 +68,7 @@
 #define RPL_MY_TOPIC(user, channel, topic) ":" + user + " TOPIC " + channel + " " + topic
 #define RPL_PART(user, channel) ":" + user + " PART " + " :" + channel
 #define RPL_KICK(user, channel, nick) ":" + user + " KICK " + channel + " " + nick + " :"
+#define RPL_INVITE(user, nick, channel) ":" + user + " INVITE " + nick + " :" + channel
 
 class Server
 {
@@ -118,6 +121,7 @@ public:
 	std::string handleTopic(Client &client, std::stringstream &buffer_stream);
 	std::string handlePart(Client &client, std::stringstream &buffer_stream);
 	std::string handleKick(Client &client, std::stringstream &buffer_stream);
+	std::string handleInvite(Client &client, std::stringstream &buffer_stream);
 	Channel *createChannel(std::string &channel_name, std::string &key, Client &client);
 	std::string msgToServer(Client &client, std::string &target, std::string &msg);
 	std::string msgToUser(Client &client, std::string &target, std::string &msg);
