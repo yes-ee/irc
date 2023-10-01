@@ -2,19 +2,29 @@
 #include "../inc/Client.hpp"
 #include "../inc/Channel.hpp"
 
-// docker run -d --name ubuntu -p 80:80 -it --privileged ubuntu:20.04
-// irssi -c 10.12.1.5 -p 6667 -n mynick
+void f()
+{
+	system("leaks ircserv");
+}
+
 int main(int argc, char *argv[])
 {
+	atexit(f);
 	if (argc != 3)
 	{
 		std::cerr << "Invalid Arguments Number" << std::endl;
 		return 1;
 	}
 
-	int port = atoi(argv[1]); //int 아닌 경우 예외처리
-	std::string password(argv[2]); // password 길이 제한
-	
+	int port = atoi(argv[1]);
+	std::string password(argv[2]);
+
+	if (password.length() > 10)
+	{
+		std::cerr << "Password too long" << std::endl;
+		return 1;
+	}
+
 	try
 	{
 		Server server(port, password);
