@@ -501,14 +501,13 @@ std::string Server::clientJoinChannel(Client &client, std::string &ch_name, std:
 
 	try
 	{
-		if (client.getNickname() != p_channel->getOwner().getNickname())
-			p_channel->joinClient(client);
-		client.joinChannel(p_channel);
-
 		std::string s_users = "";
 
 		std::map<std::string, Client> users = p_channel->getUsers();
 
+		if (users.find(client.getNickname()) == users.end())
+			p_channel->joinClient(client);
+		client.joinChannel(p_channel);
 		for (std::map<std::string, Client>::iterator it = users.begin(); it != users.end(); it++)
 		{
 			if (it->first == p_channel->getOwner().getNickname())
@@ -760,10 +759,99 @@ std::string Server::handlePart(Client &client, std::stringstream &buffer_stream)
 	return response;
 }
 
+std::string Server::handleKick(Client &client, std::stringstream &buffer_stream)
+{
+	std::string response;
+	std::string nickname_line;
+	std::string ch_name;
+
+	buffer_stream >> ch_name;
+	buffer_stream >> nickname_line;
+
+	std::vector<std::string> nicknames;
+
+	std::stringstream nick_stream(nickname_line);
+	std::string nickname;
+	while (std::getline(nick_stream, nickname, ','))
+	{
+		nickname.erase(std::remove(nickname.begin(), nickname.end(), '\r'));
+		nickname.erase(std::remove(nickname.begin(), nickname.end(), '\n'));
+		nicknames.push_back(nickname);
+	}
+
+	for(std::vector<std::string>::iterator n_it = nicknames.begin(); n_it != nicknames.end(); n_it++)
+	{
+		if (this->channels.find(ch_name) == this->channels.end())
+		{
+			// channel이 존재하지 않을 경우
+			response += makeCRLF(ERR_NOSUCHCHANNEL(client.getNickname(), ch_name));
+			continue;
+		}
+		if (this->clients_by_name.find(nickname) == this->clients_by_name.end())
+		{
+			// user가 존재하지 않을 경우
+			response += makeCRLF(ERR_NOSUCHNICK(client.getNickname(), nickname));
+			continue;
+		}
+		Channel *channel = this->channels[ch_name];
+		std::map<std::string, Client> users = channel->getUsers();
+		if (users.find(client.getNickname()) == users.end())
+		{
+			//채널에 없는 유저가 보냈을 경우
+			response += makeCRLF(ERR_NOTONCHANNEL(client.getNickname(), ch_name));
+			continue;
+		}
+		if (!channel->isOperator(client))
+		{
+			bool op = false;
+			for(std::map<std::string, int>::iterator auth_it = channel->auth.begin(); auth_it != channel->auth.end(); auth_it++)
+			{
+				if (auth_it->second <= 2)
+				{
+					op = true;
+					break;
+				}
+			}
+			if (!op)
+			{
+				// 채널 내에 operator가 없을 경우
+				response += makeCRLF(ERR_CHANOPRIVSNEEDED2(client.getNickname(), ch_name));
+				continue;
+			}
+			// operator 아닐 경우
+			response += makeCRLF(ERR_CHANOPRIVSNEEDED(client.getNickname(), ch_name));
+			continue;
+		}
+		if (users.find(nickname) == users.end())
+		{
+			// 채널에 없는 유저일 경우
+			response += makeCRLF(ERR_USERNOTINCHANNEL(client.getNickname(), nickname, ch_name));
+			continue;
+		}
+		clientKickedChannel(client, nickname, channel);
+	}
+	return response;
+}
+
+void Server::clientKickedChannel(Client &from, std::string& to_nick, Channel *channel)
+{
+	std::string ch_name = channel->getName();
+	Client to = channel->getUsers()[to_nick];
+	broadcast(ch_name, RPL_KICK(from.getPrefix(), ch_name, to.getNickname()));
+	to.leaveChannel(channel);
+	channel->deleteClient(to.getNickname());
+	if (channel->getUsers().size() == 0)
+	{
+		this->channels.erase(ch_name);
+		delete channel;
+		channel = 0;
+	}
+}
+
 void Server::clientLeaveChannel(Client &client, Channel *channel)
 {
 	std::string ch_name = channel->getName();
-	broadcast(ch_name, makeCRLF(RPL_PART(client.getPrefix(), ch_name)));
+	broadcast(ch_name, RPL_PART(client.getPrefix(), ch_name));
 	client.leaveChannel(channel);
 	channel->deleteClient(client.getNickname());
 	if (channel->getUsers().size() == 0)
@@ -909,6 +997,10 @@ void Server::parseData(Client &client)
 		else if (method == "PART")
 		{
 			response = handlePart(client, buffer_stream);
+		}
+		else if (method == "KICK")
+		{
+			response = handleKick(client, buffer_stream);
 		}
 		this->send_data[client.getSocket()] += makeCRLF(response);
 		std::cout << "send data : " << response << std::endl;

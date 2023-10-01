@@ -10,7 +10,7 @@ Channel::~Channel()
 
 }
 
-Channel::Channel(std::string& name, std::string& key, Client& client) : name(name), owner(client), user_limit(2), invite_mode(false)
+Channel::Channel(std::string& name, std::string& key, Client& client) : name(name), owner(client), user_limit(3), invite_mode(false)
 {
 	std::string nick = client.getNickname();
 

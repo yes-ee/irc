@@ -39,8 +39,10 @@
 #define ERR_NOSUCHCHANNEL(user, channel) "403 " + user + " " + channel + " :No such channel"
 #define ERR_NOTONCHANNEL(user, channel) "442 " + user + " " + channel + " :You're not on that channel"
 #define ERR_CHANOPRIVSNEEDED(user, channel) "482 " + user + " " + channel + " :You're not channel operator"
+#define ERR_CHANOPRIVSNEEDED2(user, channel) "482 " + user + " " + channel + " :You must be a channel half-operator"
 #define ERR_CANNOTSENDTOCHAN(user, channel) "404 " + user + " " + channel + " :Cannot send to channel (no external messages)"
 #define ERR_NOSUCHNICK(user, nick) "401 " + user + " " + nick + " :No such nick"
+#define ERR_USERNOTINCHANNEL(user, nick, channel) "441 " + user + " " + nick + " " + channel + " :They are not on that channel"
 
 // numeric
 #define RPL_WELCOME(user) "001 " + user + " :Welcome to the happyirc network " + user + "!"
@@ -63,6 +65,7 @@
 #define RPL_PRIVMSG(user, target, msg) ":" + user + " PRIVMSG " + target + msg
 #define RPL_MY_TOPIC(user, channel, topic) ":" + user + " TOPIC " + channel + " " + topic
 #define RPL_PART(user, channel) ":" + user + " PART " + " :" + channel
+#define RPL_KICK(user, channel, nick) ":" + user + " KICK " + channel + " " + nick + " :"
 
 class Server
 {
@@ -114,12 +117,14 @@ public:
 	std::string handleList(Client &client, std::stringstream &buffer_stream);
 	std::string handleTopic(Client &client, std::stringstream &buffer_stream);
 	std::string handlePart(Client &client, std::stringstream &buffer_stream);
+	std::string handleKick(Client &client, std::stringstream &buffer_stream);
 	Channel *createChannel(std::string &channel_name, std::string &key, Client &client);
 	std::string msgToServer(Client &client, std::string &target, std::string &msg);
 	std::string msgToUser(Client &client, std::string &target, std::string &msg);
 	void directMsg(Client &to, const std::string &msg);
 	void broadcast(std::string &channel_name, const std::string &msg);
 	void broadcastNotSelf(std::string &channel_name, const std::string &msg, int self);
+	void clientKickedChannel(Client &from, std::string& to_nick, Channel *channel);
 	void clientLeaveChannel(Client &client, Channel *channel);
 	std::string clientJoinChannel(Client &client, std::string &ch_name, std::string &key);
 
