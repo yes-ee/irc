@@ -99,11 +99,6 @@ std::string Client::getRealname() const
 	return this->realname;
 }
 
-void Client::joinRequest(Channel& channel)
-{
-	channel.joinClient(*this);
-}
-
 void Client::addBuffer(std::string data)
 {
 	this->buffer += data;

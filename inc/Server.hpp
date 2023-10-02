@@ -65,6 +65,7 @@
 #define RPL_INVITING(user, nick, channel) "341 " + user + " " + nick + " :" + channel
 #define RPL_CHANNELMODEIS(user, channel, modes, params) "324 " + user + " " + channel + " " + modes + params
 #define RPL_CHANNELCREATETIME(user, channel, date) "329 " + user + " " + channel + " :" + date
+#define RPL_ENDOFBANLIST(user, channel) "368 " + user + " " + channel + " :End of channel ban list"
 
 // command
 #define RPL_QUIT(user, message) ":" + user + " QUIT :Quit: " + message
@@ -76,6 +77,7 @@
 #define RPL_KICK(user, channel, nick) ":" + user + " KICK " + channel + " " + nick + " :"
 #define RPL_INVITE(user, nick, channel) ":" + user + " INVITE " + nick + " :" + channel
 #define RPL_MODE(user, channel, modes, params) ":" + user + " MODE " + channel + " " + modes + params
+#define RPL_NICK(before, after) ":" + before + " NICK :" + after
 
 class Server
 {
@@ -91,7 +93,6 @@ private:
 	struct kevent event_list[1024];
 	std::map<std::string, Channel *> channels;
 	std::map<int, Client> clients;
-	std::map<std::string, Client> clients_by_name;
 	std::map<int, std::string> send_data;
 
 public:
@@ -140,6 +141,9 @@ public:
 	void clientLeaveChannel(Client &client, Channel *channel);
 	std::string clientJoinChannel(Client &client, std::string &ch_name, std::string &key);
 	std::string getChannelModeResponse(Client& client, Channel* p_channel);
+	bool isClient(const std::string& nickname);
+	Client& getClientByName(Client& client, const std::string& nickname);
+	void changeChannelNick(Client& client, const std::string& before, const std::string& before_prefix);
 
 	class bindError : public std::exception
 	{

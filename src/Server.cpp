@@ -206,7 +206,8 @@ void Server::run()
 std::string Server::handleNick(Client &client, std::stringstream &buffer_stream)
 {
 	std::string name;
-	std::string cur_nick;
+	std::string before_nick;
+	std::string before_prefix;
 	std::string response = "";
 
 	// NICK 뒤에 파라미터 안 들어온 경우
@@ -217,17 +218,17 @@ std::string Server::handleNick(Client &client, std::stringstream &buffer_stream)
 	else
 	{
 		// 닉네임 중복 체크
-		if (this->clients_by_name.find(name) != this->clients_by_name.end())
+		if (this->isClient(name))
 		{
 			response = ERR_NICKNAMEINUSE(name);
 		}
 		else
 		{
-			cur_nick = client.getNickname();
-			clients_by_name.erase(cur_nick);
+			before_nick = client.getNickname();
+			before_prefix = client.getPrefix();
 			client.setNickname(name);
-			this->clients_by_name[name] = client;
-			response = ":" + cur_nick + " NICK :" + name;
+			changeChannelNick(client, before_nick, before_prefix);
+			//response = RPL_NICK(client.getPrefix(), name);
 		}
 	}
 
@@ -258,9 +259,7 @@ std::string Server::handleUser(Client &client, std::stringstream &buffer_stream)
 		name[3] = line.substr(1);
 		while (buffer_stream >> line)
 		{
-			std::cout << line << std::endl;
 			name[3] += " " + line;
-			std::cout << "name : " << name[3] << std::endl;
 		}
 
 		client.setRealname(name[3]);
@@ -269,8 +268,6 @@ std::string Server::handleUser(Client &client, std::stringstream &buffer_stream)
 	//"<client> :Welcome to the <networkname> Network, <nick>[!<user>@<host>]"
 	// error일 경우 해당하는 에러 메세지 담아서 보낼 것
 	// /r/n 제외 msg만 보내고 나중에 /r/n 더해서 send
-
-	std::cout << client.getUsername() << " " << client.getHostname() << " " << client.getServername() << " " << client.getRealname() << std::endl;
 
 	return RPL_WELCOME(client.getNickname());
 }
@@ -314,7 +311,6 @@ std::string Server::handleQuit(Client &client, std::stringstream &buffer_stream)
 	buffer_stream >> line;
 
 	message = line.substr(1);
-	std::cout << message << std::endl;
 
 	while (1)
 	{
@@ -505,12 +501,15 @@ std::string Server::clientJoinChannel(Client &client, std::string &ch_name, std:
 		std::map<std::string, Client> users = p_channel->getUsers();
 
 		if (users.find(client.getNickname()) == users.end())
-			p_channel->joinClient(client);
+			p_channel->joinClient(client, COMMON);
 		client.joinChannel(p_channel);
 		for (std::map<std::string, Client>::iterator it = users.begin(); it != users.end(); it++)
 		{
-			if (it->first == p_channel->getOwner().getNickname())
+			std::cout << it->first << " : " << p_channel->isOperator(it->second) << std::endl;
+			if (p_channel->isOperator(it->second))
+			{
 				s_users.append("@");
+			}
 			s_users.append(it->first + " ");
 		}
 		broadcast(ch_name, RPL_JOIN(client.getPrefix(), ch_name));
@@ -564,8 +563,7 @@ std::string Server::msgToServer(Client &client, std::string &target, std::string
 	{
 		Channel *channel = this->channels[target];
 		std::map<std::string, Client> users = channel->getUsers();
-
-		if ((users.find(client.getNickname()) == users.end()) && (channel->getModes().find('n') != channel->getModes().end()))
+		if ((users.find(client.getNickname()) == users.end()) && (channel->findMode('n')))
 		{
 			// 해당 사용자가 해당 채널에도 없고 n 옵션이 설정되어 있을 경우
 			response += makeCRLF(ERR_CANNOTSENDTOCHAN(client.getNickname(), target));
@@ -707,7 +705,7 @@ std::string Server::handleTopic(Client &client, std::stringstream &buffer_stream
 		response += makeCRLF(ERR_NOTONCHANNEL(client.getNickname(), channel));
 		return response;
 	}
-	if (!ch_po->isOperator(client) && (ch_po->getModes().find('t') != ch_po->getModes().end()))
+	if (!ch_po->isOperator(client) && ch_po->findMode('t'))
 	{
 		// 권한 없는 유저가 변경하려고 하면 482 error
 		response += makeCRLF(ERR_CHANOPRIVSNEEDED(client.getNickname(), channel));
@@ -786,7 +784,7 @@ std::string Server::handleKick(Client &client, std::stringstream &buffer_stream)
 			response += makeCRLF(ERR_NOSUCHCHANNEL(client.getNickname(), ch_name));
 			continue;
 		}
-		if (this->clients_by_name.find(nickname) == this->clients_by_name.end())
+		if (!this->isClient(nickname))
 		{
 			// user가 존재하지 않을 경우
 			response += makeCRLF(ERR_NOSUCHNICK(client.getNickname(), nickname));
@@ -862,7 +860,7 @@ std::string Server::handleInvite(Client &client, std::stringstream &buffer_strea
 		// channel이 존재하지 않을 경우
 		return makeCRLF(ERR_NOSUCHCHANNEL(client.getNickname(), ch_name));
 	}
-	if (this->clients_by_name.find(nickname) == this->clients_by_name.end())
+	if (!this->isClient(nickname))
 	{
 		// user가 존재하지 않을 경우
 		return makeCRLF(ERR_NOSUCHNICK(client.getNickname(), nickname));
@@ -884,7 +882,8 @@ std::string Server::handleInvite(Client &client, std::stringstream &buffer_strea
 		// operator 아닐 경우
 		return makeCRLF(ERR_CHANOPRIVSNEEDED(client.getNickname(), ch_name));
 	}
-	Client to = this->clients_by_name[nickname];
+	Client to;
+	to = getClientByName(to, nickname);
 	channel->addInvited(to);
 	response = makeCRLF(RPL_INVITING(client.getNickname(), nickname, ch_name));
 	directMsg(to, RPL_INVITE(client.getPrefix(), nickname, ch_name));
@@ -910,7 +909,6 @@ std::string Server::handleMode(Client &client, std::stringstream &buffer_stream)
 	std::string response;
 	std::string ch_name;
 	std::string modes;
-	std::string param;
 
 	buffer_stream >> ch_name;
 	buffer_stream >> modes;
@@ -937,6 +935,11 @@ std::string Server::handleMode(Client &client, std::stringstream &buffer_stream)
 		response = getChannelModeResponse(client, p_channel);
 		return response;
 	}
+	if (modes == "b")
+	{
+		response = RPL_ENDOFBANLIST(client.getNickname(), ch_name);
+		return response;
+	}
 
 	int flag = 1;
 	int pre_flag = 0;
@@ -950,7 +953,7 @@ std::string Server::handleMode(Client &client, std::stringstream &buffer_stream)
 			flag = 1;
 		else if (modes[i] == '-')
 			flag = -1;
-		else if (modes[i] == 'i' || modes[i] == 't')
+		else if (modes[i] == 'i' || modes[i] == 't' || modes[i] == 'n')
 		{
 			//op error
 			if (!p_channel->isOperator(client))
@@ -982,6 +985,7 @@ std::string Server::handleMode(Client &client, std::stringstream &buffer_stream)
 		}
 		else if (modes[i] == 'k')
 		{
+			std::string param;
 			buffer_stream >> param;
 
 			//param error
@@ -1026,6 +1030,7 @@ std::string Server::handleMode(Client &client, std::stringstream &buffer_stream)
 		}
 		else if (modes[i] == 'l')
 		{
+			std::string param;
 			buffer_stream >> param;
 
 			// op error
@@ -1056,6 +1061,9 @@ std::string Server::handleMode(Client &client, std::stringstream &buffer_stream)
 
 				long long user_limit = atoll(param.c_str());
 
+				if (user_limit < p_channel->getUsers().size())
+					continue;
+				
 				if (p_channel->findMode(modes[i]) && user_limit == p_channel->getUserLimit())
 					continue;
 
@@ -1067,10 +1075,11 @@ std::string Server::handleMode(Client &client, std::stringstream &buffer_stream)
 				ch_params += " " + param;
 				pre_flag = 1;
 			}
-
 		}
 		else if (modes[i] == 'o')
 		{
+			std::string param;
+			std::map<std::string, Client> ch_users = p_channel->getUsers();
 			buffer_stream >> param;
 
 			// param error
@@ -1080,15 +1089,19 @@ std::string Server::handleMode(Client &client, std::stringstream &buffer_stream)
 			else if (!p_channel->isOperator(client))
 				response += makeCRLF(ERR_CHANOPRIVSNEEDEDMODE(client.getNickname(), ch_name, modes[i]));
 			// no such nick error
-			else if (p_channel->getUsers().find(client.getNickname()) == p_channel->getUsers().end())
+			else if (ch_users.find(param) == ch_users.end())
+			{
 				response += makeCRLF(ERR_NOSUCHNICK(client.getNickname(), param));
+			}
 			// +o
 			else if (flag == 1)
 			{
-				if (p_channel->isOperator(client))
+				Client to;
+				to = getClientByName(to, param);
+				if (p_channel->isOperator(to))
 					continue;
 
-				p_channel->setOperator(client);
+				p_channel->setOperator(to);
 				if (pre_flag == -1 || pre_flag == 0)
 					ch_modes += "+";
 				ch_modes += modes[i];
@@ -1098,10 +1111,12 @@ std::string Server::handleMode(Client &client, std::stringstream &buffer_stream)
 			// -o
 			else if (flag == -1)
 			{
-				if (!p_channel->isOperator(client))
+				Client to;
+				to = getClientByName(to, param);
+				if (!p_channel->isOperator(to))
 					continue;
 
-				p_channel->changeAuth(COMMON, client);
+				p_channel->changeAuth(COMMON, to);
 				if (pre_flag == 1 || pre_flag == 0)
 					ch_modes += "-";
 				ch_modes += modes[i];
@@ -1109,16 +1124,25 @@ std::string Server::handleMode(Client &client, std::stringstream &buffer_stream)
 				pre_flag = -1;
 			}
 		}
-		else if (modes[i] == 'p' || modes[i] == 's' || modes[i] == 'n' || modes[i] == 'b' || modes[i] == 'v' || modes[i] == 'm')
+		else if (modes[i] == 'p' || modes[i] == 's' || modes[i] == 'v' || modes[i] == 'm' || modes[i] == 'b')
 			continue;
 		else
 			response += makeCRLF(ERR_UNKNOWNMODE(client.getNickname(), modes[i]));
 	}
 
-	std::string::size_type tmp = ch_params.rfind(" ");
-	ch_params.insert(tmp + 1, ":");
+	if (ch_params.empty() && !ch_modes.empty())
+		ch_modes.insert(0, ":");
+	else
+	{
+		std::string::size_type tmp = ch_params.rfind(" ");
+		ch_params.insert(tmp + 1, ":");
+	}
 
-	response += makeCRLF(RPL_MODE(client.getPrefix(), ch_name, ch_modes, ch_params));
+	//response += RPL_MODE(client.getPrefix(), ch_name, ch_modes, ch_params);
+	// std::cout << "modes : " + ch_modes << std::endl;
+	// std::cout << "ch_params : " + ch_params << std::endl;
+	if (!ch_modes.empty())
+		broadcast(ch_name, RPL_MODE(client.getPrefix(), ch_name, ch_modes, ch_params));
 
 	return response;
 }
@@ -1127,39 +1151,40 @@ std::string Server::getChannelModeResponse(Client& client, Channel* p_channel)
 {
 	std::string reply;
 	std::string response;
-	std::string ch_modes = "";
+	std::string ch_modes = "+";
 	std::string ch_params = "";
 	std::string ch_name = p_channel->getName();
 
 	int cnt = 0;
 	int key = 0;
 
-	if (p_channel->getModes().find('k') != p_channel->getModes().end())
+	if (p_channel->findMode('k'))
 		key++;
-	if (p_channel->getModes().find('l') != p_channel->getModes().end())
+	if (p_channel->findMode('l'))
 		key++;
+
 	std::set<char> modes = p_channel->getModes();
+
+	if (key == 0)
+			ch_modes = ":+";
 	for (std::set<char>::iterator m_it = modes.begin(); m_it != modes.end(); m_it++)
 	{
-		if (key == 0)
-			ch_modes = ":+";
-
 		if (*m_it == 'k')
 		{
 			if (cnt == key - 1)
-				ch_params += ": ";
+				ch_params += " :";
 			else
 				ch_params += " ";
-			ch_params += " " + p_channel->getPassword();
+			ch_params += p_channel->getPassword();
 			cnt++;
 		}
 		else if (*m_it == 'l')
 		{
 			if (cnt == key - 1)
-				ch_params += ": ";
+				ch_params += " :";
 			else
 				ch_params += " ";
-			ch_params += " " + std::to_string(p_channel->getUserLimit());
+			ch_params += std::to_string(p_channel->getUserLimit());
 			cnt++;
 		}
 
@@ -1320,9 +1345,36 @@ void Server::parseData(Client &client)
 			response = handleMode(client, buffer_stream);
 		}
 		this->send_data[client.getSocket()] += makeCRLF(response);
-		std::cout << "send data : " << response << std::endl;
 
 		buffer = buffer.substr(pos + 2, std::string::npos);
+	}
+}
+
+void Server::changeChannelNick(Client& client, const std::string& before, const std::string& before_prefix)
+{
+	std::string ch_name;
+	std::map<std::string, Channel> channels = client.getChannels();
+	std::set<int> c_sockets;
+	int auth;
+
+	for (std::map<std::string, Channel>::iterator m_it = channels.begin(); m_it != channels.end(); m_it++)
+	{
+		ch_name = m_it->second.getName();
+		auth = this->channels[ch_name]->getAuth()[before];
+		this->channels[ch_name]->deleteClient(before);
+		this->channels[ch_name]->joinClient(client, auth);
+
+		std::map<std::string, Client> users = this->channels[ch_name]->getUsers();
+		for (std::map<std::string, Client>::iterator u_it = users.begin(); u_it != users.end(); u_it++)
+		{
+			c_sockets.insert(u_it->second.getSocket());
+		}
+	}
+
+	for (std::set<int>::iterator s_it = c_sockets.begin(); s_it != c_sockets.end(); s_it++)
+	{
+		this->send_data[*s_it] += makeCRLF(RPL_NICK(before_prefix, client.getNickname()));
+		changeEvent(change_list, *s_it, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, NULL);
 	}
 }
 
@@ -1336,22 +1388,21 @@ void Server::disconnectClient(int client_fd)
 	for (std::map<std::string, Channel>::iterator m_it = channels.begin(); m_it != channels.end(); m_it++)
 	{
 		ch_name = m_it->second.getName();
-		std::cout << "channel :" << ch_name << " users : " << m_it->second.getUsers().size() << std::endl;
+		//std::cout << "channel :" << ch_name << " users : " << m_it->second.getUsers().size() << std::endl;
 		this->channels[ch_name]->deleteClient(nickname);
 	}
 
-	this->clients_by_name.erase(nickname);
 	this->send_data.erase(client_fd);
 	this->clients.erase(client_fd);
 	std::cout << "close client" << std::endl;
 	close(client_fd);
 
-	for (std::map<std::string, Channel *>::iterator m_it = this->channels.begin(); m_it != this->channels.end(); m_it++)
-	{
-		ch_name = m_it->second->getName();
-		std::cout << "channel :" << ch_name << std::endl;
-		std::cout << this->channels[ch_name]->getUsers().size() << std::endl;
-	}
+	// for (std::map<std::string, Channel *>::iterator m_it = this->channels.begin(); m_it != this->channels.end(); m_it++)
+	// {
+	// 	ch_name = m_it->second->getName();
+	// 	std::cout << "channel :" << ch_name << std::endl;
+	// 	std::cout << this->channels[ch_name]->getUsers().size() << std::endl;
+	// }
 }
 
 void Server::setPort(int port)
@@ -1382,4 +1433,27 @@ std::map<std::string, Channel *> Server::getChannels() const
 std::map<int, Client> Server::getClients() const
 {
 	return this->clients;
+}
+
+bool Server::isClient(const std::string& nickname)
+{
+	for(std::map<int, Client>::iterator c_it = this->clients.begin(); c_it != this->clients.end(); c_it++)
+	{
+		if (c_it->second.getNickname() == nickname)
+			return true;
+	}
+	return false;
+}
+
+Client& Server::getClientByName(Client& client, const std::string& nickname)
+{
+	for(std::map<int, Client>::iterator c_it = this->clients.begin(); c_it != this->clients.end(); c_it++)
+	{
+		if (c_it->second.getNickname() == nickname)
+		{
+			client = c_it->second;
+			return client;
+		}
+	}
+	return client;
 }
