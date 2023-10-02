@@ -19,14 +19,15 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	Server server(port, password);
 	try
 	{
-		Server server(port, password);
 		server.init();
 		server.run();
 	}
 	catch(const std::exception& e)
 	{
+		server.deleteChannel();
 		std::cerr << e.what() << '\n';
 	}
 
