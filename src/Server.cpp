@@ -426,6 +426,9 @@ std::string Server::handleJoin(Client &client, std::stringstream &buffer_stream)
 		return response;
 	}
 
+	if (ch_name[0] != '#')
+        ch_name = "#" + ch_name;
+
 	std::vector<std::string> channels;
 
 	std::stringstream channel_stream(ch_name);
