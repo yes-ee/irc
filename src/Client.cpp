@@ -18,6 +18,10 @@ Client::Client(int socket) : socket(socket)
 	this->reg = false;
 	this->close = false;
 	this->nickname = "client" + std::to_string(socket);
+	this->hostname = "127.0.0.1";
+	this->realname = "root";
+	this->servername = "root";
+	this->username = "root";
 }
 
 void Client::setSocket(int socket)

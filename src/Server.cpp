@@ -294,6 +294,9 @@ std::string Server::handleQuit(Client &client, std::stringstream &buffer_stream)
 
 	buffer_stream >> line;
 
+	if (line.empty())
+		line = ":leaving";
+
 	message = line.substr(1);
 
 	while (1)
