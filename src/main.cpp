@@ -2,14 +2,8 @@
 #include "../inc/Client.hpp"
 #include "../inc/Channel.hpp"
 
-void f()
-{
-	system("leaks ircserv");
-}
-
 int main(int argc, char *argv[])
 {
-	atexit(f);
 	if (argc != 3)
 	{
 		std::cerr << "Invalid Arguments Number" << std::endl;
