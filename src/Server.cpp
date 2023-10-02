@@ -1363,6 +1363,12 @@ void Server::disconnectClient(int client_fd)
 	{
 		ch_name = m_it->second.getName();
 		this->channels[ch_name]->deleteClient(nickname);
+		if (this->channels[ch_name]->getUsers().size() == 0)
+		{
+			delete this->channels[ch_name];
+			this->channels[ch_name] = 0;
+			this->channels.erase(ch_name);
+		}
 	}
 
 	this->send_data.erase(client_fd);
