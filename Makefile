@@ -1,7 +1,6 @@
-CXX			:=	c++ -fsanitize=address -g
-# CXXFLAGS	:= -std=c++98 -g
-#-Wall -Wextra -Werror
-LDFLAGS		:=
+CXX			:=	c++
+CXXFLAGS	:= -std=c++98 
+LDFLAGS		:= -Wall -Wextra -Werror
 
 FILES = $(addprefix src/, main Client Server Channel)
 

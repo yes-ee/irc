@@ -16,9 +16,11 @@ void Server::init()
 {
 	this->server_socket = socket(AF_INET, SOCK_STREAM, 0);
 	const int value = 1;
-	setsockopt(this->server_socket, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value));
+	if (setsockopt(this->server_socket, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value)) != 0)
+		throw std::runtime_error("set server socket error");
 
 	sockaddr_in server_address;
+
 
 	memset(&server_address, 0, sizeof(server_address));
 	server_address.sin_family = AF_INET;
@@ -27,7 +29,6 @@ void Server::init()
 
 	if (bind(this->server_socket, (struct sockaddr *)&server_address, sizeof(server_address)) == -1)
 	{
-		// 수정 필요
 		close(this->port);
 		throw bindError();
 	}
@@ -66,7 +67,6 @@ void Server::run()
 	struct kevent *curr_event;
 	while (1)
 	{
-		/*  apply changes and return new events(pending events) */
 		// change_list 에 있는 이벤트들을 kqueue에 등록
 		// change_list = 큐에 등록할 이벤트들이 담겨있는 배열
 		// event_list = 발생할 이벤트들이 리턴될 배열
@@ -108,14 +108,12 @@ void Server::run()
 				// 서버인 경우 (클라이언트가 새로 접속한 경우)
 				if (curr_event->ident == server_socket)
 				{
-					/* accept new client */
 					int client_socket;
 					if ((client_socket = accept(server_socket, NULL, NULL)) == -1)
 						throw acceptError();
 					std::cout << "accept new client: " << client_socket << std::endl;
 					fcntl(client_socket, F_SETFL, O_NONBLOCK);
 
-					/* add event for client socket - add read && write event */
 					// 새로 등록된 경우 클라이언트의 read와 write 이벤트 모두 등록
 					changeEvent(change_list, client_socket, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, NULL);
 					changeEvent(change_list, client_socket, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, NULL);
@@ -125,7 +123,6 @@ void Server::run()
 				// 이미 연결된 클라이언트의 read 가 가능한 경우
 				else if (clients.find(curr_event->ident) != clients.end())
 				{
-					/* read data from client */
 					char buf[1024];
 					// 해당 클라이언트의 데이터 읽기
 					int n = recv(curr_event->ident, buf, sizeof(buf), 0);
@@ -139,11 +136,6 @@ void Server::run()
                     }
                     else
                     {
-						// if (clients[curr_event->ident].getClose())
-						// {
-						// 	std::cout << "end : not read" << std::endl;
-						// 	continue;
-						// }
                         buf[n] = '\0';
                         clients[curr_event->ident].addBuffer(buf);
                         std::cout << "received data from " << curr_event->ident << ": " << clients[curr_event->ident].getBuffer() << std::endl;
@@ -163,7 +155,6 @@ void Server::run()
 			// write 가 가능한 경우
 			else if (curr_event->filter == EVFILT_WRITE)
 			{
-				/* send data to client */
 				std::map<int, Client>::iterator it = clients.find(curr_event->ident);
 				if (it != clients.end())
 				{ // 버퍼가 비어있는 경우 전송 x
@@ -184,7 +175,6 @@ void Server::run()
 						else
 						{
 							this->send_data[curr_event->ident].clear();
-							// disconnectClient(curr_event->ident);
 							if (clients[curr_event->ident].getClose())
 							{
 								disconnectClient(curr_event->ident);
@@ -192,7 +182,6 @@ void Server::run()
 							}
 							// write 이벤트 리턴 x -> 발생해도 큐에서 처리 x
 							changeEvent(change_list, curr_event->ident, EVFILT_WRITE, EV_DISABLE, 0, 0, curr_event->udata);
-							// changeEvent(change_list, curr_event->ident, EVFILT_WRITE, EV_DELETE, 0, 0, curr_event->udata);
 							// read 이벤트 등록
 							changeEvent(change_list, curr_event->ident, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, curr_event->udata);
 						}
@@ -228,7 +217,6 @@ std::string Server::handleNick(Client &client, std::stringstream &buffer_stream)
 			before_prefix = client.getPrefix();
 			client.setNickname(name);
 			changeChannelNick(client, before_nick, before_prefix);
-			//response = RPL_NICK(client.getPrefix(), name);
 		}
 	}
 
@@ -264,10 +252,6 @@ std::string Server::handleUser(Client &client, std::stringstream &buffer_stream)
 
 		client.setRealname(name[3]);
 	}
-
-	//"<client> :Welcome to the <networkname> Network, <nick>[!<user>@<host>]"
-	// error일 경우 해당하는 에러 메세지 담아서 보낼 것
-	// /r/n 제외 msg만 보내고 나중에 /r/n 더해서 send
 
 	return RPL_WELCOME(client.getNickname());
 }
@@ -340,8 +324,8 @@ std::string Server::handleWho(Client &client, std::stringstream &buffer_stream)
 			for (std::map<std::string, Channel *>::iterator m_it = this->channels.begin(); m_it != this->channels.end(); m_it++)
 			{
 				ch_name = m_it->second->getName();
-				if (name == ch_name)
-				{
+				if (name == ch_name && !m_it->second->findMode('i'))
+				{	
 					std::map<std::string, Client> users = m_it->second->getUsers();
 
 					for (std::map<std::string, Client>::iterator u_it = users.begin(); u_it != users.end(); u_it++)
@@ -508,11 +492,8 @@ std::string Server::clientJoinChannel(Client &client, std::string &ch_name, std:
 		client.joinChannel(p_channel);
 		for (std::map<std::string, Client>::iterator it = users.begin(); it != users.end(); it++)
 		{
-			std::cout << it->first << " : " << p_channel->isOperator(it->second) << std::endl;
 			if (p_channel->isOperator(it->second))
-			{
 				s_users.append("@");
-			}
 			s_users.append(it->first + " ");
 		}
 		broadcast(ch_name, RPL_JOIN(client.getPrefix(), ch_name));
@@ -550,7 +531,6 @@ std::string Server::handlePrivmsg(Client &client, std::stringstream &buffer_stre
 	{
 		response += msgToUser(client, target, msg);
 	}
-	// error 처리
 	return response;
 }
 
@@ -918,10 +898,7 @@ std::string Server::handleMode(Client &client, std::stringstream &buffer_stream)
 
 	// 채널명 잘못 들어온 경우(유저 찾는 경우) 401 에러
 	if (ch_name[0] != '#')
-	{
-		//response = ERR_NOSUCHNICK(client.getNickname(), ch_name);
 		return response;
-	}
 
 	// 존재하지 않는 채널인 경우 403 에러
 	if (channels.find(ch_name) == channels.end())
@@ -949,7 +926,7 @@ std::string Server::handleMode(Client &client, std::stringstream &buffer_stream)
 	std::string ch_modes = "";
 	std::string ch_params = "";
 
-	// i t k l    o
+	// i t k l o
 	for (int i = 0; i < modes.length(); i++)
 	{
 		if (modes[i] == '+')
@@ -1141,9 +1118,6 @@ std::string Server::handleMode(Client &client, std::stringstream &buffer_stream)
 		ch_params.insert(tmp + 1, ":");
 	}
 
-	//response += RPL_MODE(client.getPrefix(), ch_name, ch_modes, ch_params);
-	// std::cout << "modes : " + ch_modes << std::endl;
-	// std::cout << "ch_params : " + ch_params << std::endl;
 	if (!ch_modes.empty())
 		broadcast(ch_name, RPL_MODE(client.getPrefix(), ch_name, ch_modes, ch_params));
 
@@ -1202,7 +1176,6 @@ std::string Server::getChannelModeResponse(Client& client, Channel* p_channel)
 void Server::parseData(Client &client)
 {
 	std::string buffer = client.getBuffer();
-	std::cout << buffer << std::endl;
 
 	size_t pos = 0;
 
@@ -1248,7 +1221,6 @@ void Server::parseData(Client &client)
 			if (method == "PASS")
 			{
 				// 다음 버퍼까지 확인해서 마지막 pass일 때 인증 과정 수행
-				// method 이후부터 저장되어 있는 pre_stream 생성
 				client.setPreCmd(line);
 				this->send_data[client.getSocket()] += makeCRLF(response);
 				buffer = buffer.substr(pos + 2);
@@ -1348,7 +1320,6 @@ void Server::parseData(Client &client)
 			response = handleMode(client, buffer_stream);
 		}
 		this->send_data[client.getSocket()] += makeCRLF(response);
-
 		buffer = buffer.substr(pos + 2, std::string::npos);
 	}
 }
@@ -1391,21 +1362,13 @@ void Server::disconnectClient(int client_fd)
 	for (std::map<std::string, Channel>::iterator m_it = channels.begin(); m_it != channels.end(); m_it++)
 	{
 		ch_name = m_it->second.getName();
-		//std::cout << "channel :" << ch_name << " users : " << m_it->second.getUsers().size() << std::endl;
 		this->channels[ch_name]->deleteClient(nickname);
 	}
 
 	this->send_data.erase(client_fd);
 	this->clients.erase(client_fd);
-	std::cout << "close client" << std::endl;
+	std::cout << "close client " << client_fd << std::endl;
 	close(client_fd);
-
-	// for (std::map<std::string, Channel *>::iterator m_it = this->channels.begin(); m_it != this->channels.end(); m_it++)
-	// {
-	// 	ch_name = m_it->second->getName();
-	// 	std::cout << "channel :" << ch_name << std::endl;
-	// 	std::cout << this->channels[ch_name]->getUsers().size() << std::endl;
-	// }
 }
 
 void Server::setPort(int port)
@@ -1459,4 +1422,18 @@ Client& Server::getClientByName(Client& client, const std::string& nickname)
 		}
 	}
 	return client;
+}
+
+void Server::deleteChannel()
+{
+	if (!this->channels.empty())
+	{
+		for(std::map<std::string, Channel *>::iterator ch_it = this->channels.begin(); ch_it != this->channels.end(); ch_it++)
+		{
+			Channel *channel = ch_it->second;
+			delete channel;
+			channel = 0;
+			this->channels.erase(ch_it->first);
+		}
+	}
 }

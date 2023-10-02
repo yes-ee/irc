@@ -1,15 +1,15 @@
 #ifndef CHANNEL_HPP
 #define CHANNEL_HPP
 
-#include "vector"
-#include "set"
-#include "map"
-#include "iostream"
-#include "string"
-#include "sstream"
+#include <vector>
+#include <set>
+#include <map>
+#include <iostream>
+#include <string>
+#include <sstream>
+#include <algorithm>
+#include <ctime>
 #include "Client.hpp"
-#include "algorithm"
-#include <time.h>
 
 #define OWNER		1
 #define OPERATOR	2
@@ -42,7 +42,6 @@ class Channel {
 		std::string getPassword() const;
 		void setTopic(Client& client, std::string& topic);
 		std::string getTopic() const;
-		// void setInviteMode(bool flag);
 		bool getInviteMode() const;
 		void setOperator(const Client& client);
 		bool isOperator(const Client& client);
@@ -58,8 +57,6 @@ class Channel {
 		void addBan(const Client& client);
 		bool checkBan(const Client& client);
 		std::map<std::string, Client> getUsers() const;
-		// bool validateCommand(std::vector<std::string>& mode_cmd, std::string& command);
-		// void setMode(std::string& command);
 		std::set<char> getModes() const;
 		std::string getModeString() const;
 		bool findMode(char mode);

@@ -24,7 +24,6 @@ Channel::Channel(std::string& name, std::string& key, Client& client) : name(nam
 	this->modes.insert('n');
 	this->modes.insert('t');
 	this->create_time = time(NULL);
-	std::cout << "channel name is " << name << std::endl; 
 }
 
 void Channel::setName(std::string& name)
@@ -117,7 +116,6 @@ void Channel::addBan(const Client& client)
 	this->auth.erase(name);
 	this->users.erase(name);
 	this->ban.push_back(name);
-	// quit 처리
 }
 
 bool Channel::checkBan(const Client& client)
@@ -135,57 +133,6 @@ std::map<std::string, Client> Channel::getUsers() const
 {
 	return this->users;
 }
-
-// bool Channel::validateCommand(std::vector<std::string>& mode_cmd, std::string& command)
-// {
-// 	if (command.length() < 2)
-// 		return false;
-// 	std::string flag(1,command[0]);
-// 	std::string mode(1,command[1]);
-// 	if (flag != "+" && flag != "-")
-// 		return false;
-// 	std::stringstream ss(command);
-
-// 	std::string word;
-// 	std::vector<std::string> words;
-// 	while (getline(ss, word, ' ')){
-//         words.push_back(word);
-//     }
-// 	if (flag == "-" && words.size() > 1)
-// 		return false;
-// 	if (words.size() > 2)
-// 		return false;
-// 	if (mode != "i" && mode != "t" && mode != "k" && mode != "o")
-// 		return false;
-// 	if (mode == "l" || mode == "t")
-// 	{
-// 		if (words[1].length() > 9)
-// 			return false;
-// 		if (mode == "l")
-// 		{
-// 			for (int i = 0; i < words[1].length(); i++)
-// 			{
-// 				if (!std::isdigit(words[1][i]))
-// 					return false;
-// 			}
-// 		}
-// 	}
-// 	mode_cmd.push_back(flag);
-// 	mode_cmd.push_back(mode);
-// 	if (words.size() == 2)
-// 		mode_cmd.push_back(words[1]);
-// 	return true;
-// }
-
-// void Channel::setMode(std::string& command)
-// {
-// 	std::vector<std::string> mode_cmd;
-
-// 	if (!validateCommand(mode_cmd, command))
-// 		return ;
-	
-// 	// this->modes.insert(mode);
-// }
 
 std::set<char> Channel::getModes() const
 {

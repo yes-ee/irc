@@ -16,6 +16,7 @@ Client::Client(int socket) : socket(socket)
 	this->buffer = "";
 	this->pre_cmd = "";
 	this->reg = false;
+	this->close = false;
 	this->nickname = "client" + std::to_string(socket);
 }
 
