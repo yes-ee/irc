@@ -143,6 +143,7 @@ public:
 	Client& getClientByName(Client& client, const std::string& nickname);
 	void changeChannelNick(Client& client, const std::string& before, const std::string& before_prefix);
 	void deleteChannel();
+	void closeClient();
 
 	class bindError : public std::exception
 	{
