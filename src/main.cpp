@@ -13,6 +13,18 @@ int main(int argc, char *argv[])
 	int port = atoi(argv[1]);
 	std::string password(argv[2]);
 
+	if (port < 1024 || port > 49151)
+	{
+		std::cerr << "Bad port number" << std::endl;
+		return 1;
+	}
+
+	if (password.empty())
+	{
+		std::cerr << "Password empty" << std::endl;
+		return 1;
+	}
+
 	if (password.length() > 10)
 	{
 		std::cerr << "Password too long" << std::endl;

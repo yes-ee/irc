@@ -29,12 +29,12 @@ void Server::init()
 
 	if (bind(this->server_socket, (struct sockaddr *)&server_address, sizeof(server_address)) == -1)
 	{
-		close(this->port);
+		close(server_socket);
 		throw bindError();
 	}
 	if (listen(server_socket, 15) == -1)
 	{
-		close(port);
+		close(server_socket);
 		throw listenError();
 	}
 	fcntl(this->server_socket, F_SETFL, O_NONBLOCK);
@@ -43,7 +43,7 @@ void Server::init()
 
 	if (kq == -1)
 	{
-		close(this->port);
+		close(server_socket);
 		throw kqueueError();
 	}
 	// 서버 소켓의 read를 큐에 등록
@@ -73,7 +73,8 @@ void Server::run()
 		new_events = kevent(kq, &change_list[0], change_list.size(), event_list, 8, NULL);
 		if (new_events == -1)
 		{
-			close(this->port);
+			closeClient();
+			close(server_socket);
 			throw keventError();
 		}
 
@@ -92,7 +93,8 @@ void Server::run()
 				// 서버에서 에러가 난 경우 -> 서버 포트 닫고, 에러 던지고 프로그램 종료
 				if (curr_event->ident == server_socket)
 				{
-					close(this->port);
+					closeClient();
+					close(server_socket);					
 					throw std::runtime_error("server socket error");
 				}
 				// 클라이언트에서 에러가 난 경우 -> 해당 클라이언트 소켓 닫기 (관련된 이미 등록된 이벤트는 큐에서 삭제됨)
@@ -1445,4 +1447,12 @@ void Server::deleteChannel()
 			this->channels.erase(ch_it->first);
 		}
 	}
+}
+
+void Server::closeClient()
+{
+	std::map<int, Client> clients = clients;
+
+	for (std::map<int, Client>::iterator c_it = clients.begin(); c_it != clients.end(); c_it++)
+		close(c_it->first);
 }
